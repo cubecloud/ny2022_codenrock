@@ -1,3 +1,19 @@
+#PyCharm settings
+/.idea/*.*
+/.idea/
+
+# Jupyter lab internal files
+.ipynb_checkpoints
+/.ipynb_checkpoints/*.*
+/.ipynb_checkpoints/
+
+#Project data files
+/data.lnk
+
+# Other project data
+.env
+*.env
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -74,8 +90,7 @@ docs/_build/
 # PyBuilder
 target/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+
 
 # IPython
 profile_default/
@@ -102,7 +117,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
