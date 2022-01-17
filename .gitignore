@@ -2,13 +2,14 @@
 /.idea/*.*
 /.idea/
 
+
 # Jupyter lab internal files
 .ipynb_checkpoints
 /.ipynb_checkpoints/*.*
 /.ipynb_checkpoints/
 
 #Project data files
-/data.lnk
+/data/train/*.*
 
 # Other project data
 .env
