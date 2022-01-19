@@ -6,7 +6,8 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-__version__ = 0.004
+__version__ = 0.005
+
 
 class ImagesDataSet:
     def __init__(self,
@@ -14,7 +15,6 @@ class ImagesDataSet:
                  data_df_path_filename: str = '',
                  image_size=150,
                  ):
-
         self.version = "v3"
         self.image_size = image_size
         assert data_images_dir, "Error: set the train directory!"
@@ -40,7 +40,6 @@ class ImagesDataSet:
         self.train_datagen = None
         self.val_datagen = None
         self.clean_datagen = None
-        self.datagen = None
 
         self.train_gen = None
         self.val_gen = None
@@ -97,50 +96,7 @@ class ImagesDataSet:
                                                             target_size=(self.image_size, self.image_size)
                                                             )
 
-
-    def build_2(self):
-        self.datagen = ImageDataGenerator(
-                                          rescale=1. / 255.,
-                                          # samplewise_center=True,
-                                          # samplewise_std_normalization=True,
-                                          rotation_range=8,
-                                          width_shift_range=0.12,
-                                          height_shift_range=0.12,
-                                          zoom_range=0.1,
-                                          brightness_range=(0.9, 1.1),
-                                          horizontal_flip=True,
-                                          fill_mode='nearest',
-                                          validation_split=self.validation_split,
-                                          )
-
-        self.train_gen = self.datagen.flow_from_dataframe(dataframe=self.data_df,
-                                                          directory=self.data_images_dir,
-                                                          x_col="image_name",
-                                                          y_col="class_id",
-                                                          subset="training",
-                                                          validate_filenames=True,
-                                                          batch_size=self.batch_size,
-                                                          seed=42,
-                                                          shuffle=True,
-                                                          class_mode="categorical",
-                                                          target_size=(self.image_size, self.image_size),
-                                                          )
-
-        self.val_gen = self.datagen.flow_from_dataframe(dataframe=self.data_df,
-                                                        directory=self.data_images_dir,
-                                                        x_col="image_name",
-                                                        y_col="class_id",
-                                                        subset="validation",
-                                                        validate_filenames=True,
-                                                        batch_size=self.batch_size,
-                                                        seed=42,
-                                                        shuffle=True,
-                                                        class_mode="categorical",
-                                                        target_size=(self.image_size, self.image_size)
-                                                        )
-        pass
-
-    def build_check_gen(self, batch_size=320):
+    def build_check_gen(self, batch_size=32):
         self.clean_datagen = ImageDataGenerator(
                                                 rescale=1. / 255.
                                                 # samplewise_center=True,
@@ -155,13 +111,6 @@ class ImagesDataSet:
                                                               class_mode="categorical",
                                                               target_size=(self.image_size, self.image_size)
                                                               )
-
-    def create_data_from_gen(self):
-        len_data = len(self.all_gen.filenames)
-        self.build_check_gen(int(len_data//16))
-        for x_data, y_data in self.all_gen:
-            continue
-        return x_data, y_data
 
     def build_test_ds(self, image_dir):
         self.test_ds = tf.keras.utils.image_dataset_from_directory(directory=image_dir,

@@ -5,7 +5,6 @@ import datetime
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau
 import matplotlib.pyplot as plt
 import tensorflow_addons as tfa
@@ -14,7 +13,7 @@ from models import sepconv2d, resnet50v2_classification_model, resnet50v2_origin
 from dataset import ImagesDataSet
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-__version__ = 0.004
+__version__ = 0.005
 
 home_dir = os.getcwd()
 base_dir = os.path.join(home_dir, 'data')
@@ -43,13 +42,13 @@ class TrainNN:
         self.model_compiled = False
         self.es_patience = 15
         self.rlrs_patience = 8
-        self.keras_model, self.net_name = sepconv2d(input_shape=(self.dataset.image_size,
-                                                                 self.dataset.image_size) + (3,),
-                                                    num_classes=3)
+        self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
+                                                                                 self.dataset.image_size) + (3,),
+                                                                    num_classes=3)
+
         self.learning_rate = 3e-5
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
         self.class_weights = self.dataset.class_weights
-
 
     def compile(self):
         self.path_filename = os.path.join(weight_dir, f"{self.experiment_name}_{self.net_name}_{self.monitor}")
@@ -72,6 +71,7 @@ class TrainNN:
         rlrs = ReduceLROnPlateau(monitor=self.monitor, factor=0.07, patience=self.rlrs_patience, min_lr=1e-07)
         es = EarlyStopping(patience=self.es_patience, monitor=self.monitor, restore_best_weights=True)
         callbacks = [rlrs, chkp, es]
+
         path_filename = f"{self.path_filename}_NN.png"
 
         tf.keras.utils.plot_model(self.keras_model,
@@ -190,8 +190,8 @@ class TrainNN:
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 256
-    batch_size = 40
+    image_size = 672
+    batch_size = 12
     epochs = 100
     start_learning_rate = 0.0001
     start_patience = round(epochs * 0.04)
@@ -210,24 +210,21 @@ if __name__ == "__main__":
     tr.es_patience = 20
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
-    # tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate,
+    # tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate*2,
     #                                        nesterov=True,
     #                                        momentum=0.9
     #                                        )
-    # tr.keras_model, tr.net_name = resnet50v2_classification_model(input_shape=(tr.dataset.image_size,
-    #                                                                            tr.dataset.image_size) + (3,),
-    #                                                               num_classes=dataset.num_classes)
 
-    tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
-                                                                         tr.dataset.image_size) + (3,),
-                                                            num_classes=dataset.num_classes)
+    # tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
+    #                                                                      tr.dataset.image_size) + (3,),
+    #                                                         num_classes=dataset.num_classes)
     tr.train()
     end = datetime.datetime.now()
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
     tr.figshow_base()
 
     """ Checking train on all available data """
-    dataset.build_check_gen()
+    dataset.build_check_gen(batch_size=batch_size)
     tr.evaluate(dataset.all_gen)
     tr.figshow_matrix()
     print("ok")
