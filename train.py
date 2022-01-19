@@ -10,11 +10,11 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningR
 import matplotlib.pyplot as plt
 import tensorflow_addons as tfa
 import seaborn as sns
-from models import sepconv2d, resnet50v2_classification_model
+from models import sepconv2d, resnet50v2_classification_model, resnet50v2_original_model
 from dataset import ImagesDataSet
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-__version__ = 0.003
+__version__ = 0.004
 
 home_dir = os.getcwd()
 base_dir = os.path.join(home_dir, 'data')
@@ -114,7 +114,6 @@ class TrainNN:
         def num_of_zeros(n):
             s = '{:.16f}'.format(n).split('.')[1]
             return len(s) - len(s.lstrip('0'))
-
         sub_plots = 1
         plot_names_list = list(self.history.history.keys())
         subplot2_list = ['mae', 'mse', 'f1', 'dice_cce_loss']
@@ -127,24 +126,21 @@ class TrainNN:
 
         if to_plot2:
             sub_plots = 2
-        fig = plt.figure(figsize=(22, 15*sub_plots))
+        fig = plt.figure(figsize=(30, 9*sub_plots))
         sns.set_style("white")
         ax1 = fig.add_subplot(1, sub_plots, 1)
         ax1.set_axisbelow(True)
         ax1.minorticks_on()
-        # Turn on the minor TICKS, which are required for the minor GRID
-        # Customize the major grid
         ax1.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
-        # Customize the minor grid
         ax1.grid(which='minor', linestyle=':', linewidth='0.5', color='gray')
         N = np.arange(0, len(self.history.history["loss"]))
 
         for plot_name in to_plot1:
             if "lr" in plot_name:
-                multiplication = 10 ** (num_of_zeros(self.learning_rate)+2)
+                mult = 10 ** (num_of_zeros(self.learning_rate)+2)
                 lr_arr = np.array(self.history.history[plot_name])
-                lr_arr = lr_arr * multiplication
-                plt.plot(N, lr_arr, label=f"{plot_name}*{multiplication}")
+                lr_arr = lr_arr * mult//10 if mult > 2 else lr_arr * mult
+                plt.plot(N, lr_arr, label=f"{plot_name}*{mult}")
             else:
                 plt.plot(N, self.history.history[plot_name], label=plot_name)
         plt.title(f"Training Loss and Metric")
@@ -153,10 +149,7 @@ class TrainNN:
             ax2 = fig.add_subplot(1, sub_plots, sub_plots)
             ax2.set_axisbelow(True)
             ax2.minorticks_on()
-            # Turn on the minor TICKS, which are required for the minor GRID
-            # Customize the major grid
             ax2.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
-            # Customize the minor grid
             ax2.grid(which='minor', linestyle=':', linewidth='0.5', color='gray')
             for plot_name in to_plot2:
                 if "f1" in plot_name:
@@ -209,21 +202,25 @@ if __name__ == "__main__":
                             image_size=image_size,
                             )
     dataset.batch_size = batch_size
-    dataset.validation_split = 0.2
+    dataset.validation_split = 0.1
     dataset.build()
     tr = TrainNN(dataset)
     tr.monitor = "loss"
     tr.learning_rate = start_learning_rate
-    tr.es_patience = 15
+    tr.es_patience = 20
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
-    tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate,
-                                           nesterov=True,
-                                           momentum=0.9
-                                           )
-    tr.keras_model, tr.net_name = resnet50v2_classification_model(input_shape=(tr.dataset.image_size,
-                                                                               tr.dataset.image_size) + (3,),
-                                                                  num_classes=dataset.num_classes)
+    # tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate,
+    #                                        nesterov=True,
+    #                                        momentum=0.9
+    #                                        )
+    # tr.keras_model, tr.net_name = resnet50v2_classification_model(input_shape=(tr.dataset.image_size,
+    #                                                                            tr.dataset.image_size) + (3,),
+    #                                                               num_classes=dataset.num_classes)
+
+    tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
+                                                                         tr.dataset.image_size) + (3,),
+                                                            num_classes=dataset.num_classes)
     tr.train()
     end = datetime.datetime.now()
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
