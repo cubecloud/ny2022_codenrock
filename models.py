@@ -55,6 +55,7 @@ def resnet50v2_original_model(input_shape=(228, 228, 3),
     name_of_model = f"ResNet50V2_orig_{version}_{input_shape[0]}x{input_shape[1]}"
     return keras_model, name_of_model
 
+
 def sepconv2d(input_shape, num_classes):
     """
     Args:

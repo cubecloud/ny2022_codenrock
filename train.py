@@ -110,7 +110,7 @@ class TrainNN:
         self.keras_model.evaluate(Test)
         pass
 
-    def figshow_base(self):
+    def figshow_base(self, save_figure=True):
         def num_of_zeros(n):
             s = '{:.16f}'.format(n).split('.')[1]
             return len(s) - len(s.lstrip('0'))
@@ -160,14 +160,15 @@ class TrainNN:
                     plt.plot(N, self.history.history[plot_name], label=plot_name)
             plt.legend()
 
-        path_filename = os.path.join(weight_dir, f"{self.experiment_name}_{self.net_name}_learning.png")
-        plt.savefig(path_filename,
-                    dpi=96, facecolor='w',
-                    edgecolor='w', orientation='portrait',
-                    format=None, transparent=False,
-                    bbox_inches=None, pad_inches=0.1,
-                    metadata=None
-                    )
+        if save_figure:
+            path_filename = os.path.join(weight_dir, f"{self.experiment_name}_{self.net_name}_learning.png")
+            plt.savefig(path_filename,
+                        dpi=96, facecolor='w',
+                        edgecolor='w', orientation='portrait',
+                        format=None, transparent=False,
+                        bbox_inches=None, pad_inches=0.1,
+                        metadata=None
+                        )
         plt.show()
         pass
 
@@ -197,7 +198,7 @@ if __name__ == "__main__":
     start_patience = round(epochs * 0.04)
 
     print(f'Image Size = {image_size}x{image_size}')
-    dataset = ImagesDataSet(os.path.join(os.getcwd(), "data", "train", "images"),
+    dataset = ImagesDataSet(os.path.join(os.getcwd(), "data", "train"),
                             os.path.join(os.getcwd(), "data", "train", "train.csv"),
                             image_size=image_size,
                             )
@@ -221,10 +222,12 @@ if __name__ == "__main__":
     tr.train()
     end = datetime.datetime.now()
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
-    tr.figshow_base()
+    tr.figshow_base(save_figure=False)
 
     """ Checking train on all available data """
     dataset.build_check_gen(batch_size=batch_size)
     tr.evaluate(dataset.all_gen)
-    tr.figshow_matrix()
+    """ Check confusion matrix """
+    # tr.figshow_matrix()
+
     print("ok")

@@ -141,11 +141,10 @@ if __name__ == "__main__":
         fig.tight_layout(pad=0.0)
         plt.show()
 
-    dataset = ImagesDataSet(os.path.join(os.getcwd(), "data", "train", "images"),
+    dataset = ImagesDataSet(os.path.join(os.getcwd(), "data", "train"),
                             os.path.join(os.getcwd(), "data", "train", "train.csv")
                             )
     dataset.batch_size = 1
-    dataset.augmentation = False
     dataset.build()
     plot_augmentation(dataset.train_gen, n_rows=5, n_cols=10)
     plot_augmentation(dataset.val_gen, n_rows=5, n_cols=10)
