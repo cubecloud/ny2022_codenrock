@@ -35,7 +35,7 @@ if __name__ == "__main__":
     """ Universal part until this """
 
     dataset = ImagesDataSet(train_dir,
-                            os.path.join(train_dir, "train.csv"),
+                            os.path.join(base_dir, "train.csv"),
                             image_size=image_size,
                             )
     dataset.batch_size = batch_size

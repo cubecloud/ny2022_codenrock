@@ -123,28 +123,4 @@ class ImagesDataSet:
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-    def plot_augmentation(datagen, n_rows=2, n_cols=4):
-        n_images = n_rows * n_cols
-        base_size = 3
-        fig_size = (n_cols * base_size, n_rows * base_size)
-        fig = plt.figure(figsize=fig_size)
-        count = 1
-        for r in range(n_images):
-            plt.subplot(n_rows, n_cols, count)
-            plt.axis('off')
-            X, Y = next(datagen)
-            X = np.squeeze(X)
-            plt.imshow((X.astype('uint8')))
-            count += 1
-        fig.tight_layout(pad=0.0)
-        plt.show()
-
-    dataset = ImagesDataSet(os.path.join(os.getcwd(), "data", "train"),
-                            os.path.join(os.getcwd(), "data", "train", "train.csv")
-                            )
-    dataset.batch_size = 1
-    dataset.build()
-    plot_augmentation(dataset.train_gen, n_rows=5, n_cols=10)
-    plot_augmentation(dataset.val_gen, n_rows=5, n_cols=10)
+    print("ok")

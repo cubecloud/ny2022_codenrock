@@ -3,13 +3,12 @@ from typing import Tuple
 import pytz
 import datetime
 import numpy as np
-import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 import matplotlib.pyplot as plt
 import tensorflow_addons as tfa
 import seaborn as sns
-from models import sepconv2d, resnet50v2_classification_model, resnet50v2_original_model
+from models import resnet50v2_original_model
 from dataset import ImagesDataSet
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
@@ -199,7 +198,7 @@ if __name__ == "__main__":
 
     print(f'Image Size = {image_size}x{image_size}')
     dataset = ImagesDataSet(os.path.join(os.getcwd(), "data", "train"),
-                            os.path.join(os.getcwd(), "data", "train", "train.csv"),
+                            os.path.join(os.getcwd(), "data", "train.csv"),
                             image_size=image_size,
                             )
     dataset.batch_size = batch_size
