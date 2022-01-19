@@ -4,8 +4,9 @@ from tensorflow.keras import layers
 
 def resnet50v2_classification_model(input_shape=(228, 228, 3),
                                     filters=64,
-                                    num_classes=2,
+                                    num_classes=3,
                                     ):
+    version = 2
     new_in = layers.Input(shape=input_shape)
     base_model = tf.keras.applications.ResNet50V2(include_top=False,
                                                   weights=None,
@@ -26,7 +27,7 @@ def resnet50v2_classification_model(input_shape=(228, 228, 3),
     x = layers.Dense(int(filters / 2), activation='relu')(x)
     x_out = layers.Dense(num_classes, activation='softmax')(x)
     keras_model = tf.keras.models.Model(inputs=new_in, outputs=x_out)
-    name_of_model = f"ResNet50V2_{input_shape[0]}x{input_shape[1]}"
+    name_of_model = f"ResNet50V1_{version}_{input_shape[0]}x{input_shape[1]}"
     return keras_model, name_of_model
 
 

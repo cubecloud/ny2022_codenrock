@@ -13,7 +13,7 @@ class ImagesDataSet:
                  image_size=150,
                  ):
 
-        self.version = 0.001
+        self.version = "v3"
         self.image_size = image_size
         assert data_images_dir, "Error: set the train directory!"
         self.data_images_dir = data_images_dir
@@ -26,16 +26,14 @@ class ImagesDataSet:
                                    )
 
         self.batch_size = 32
-
+        self.num_classes = self.data_df["class_id"].nunique()
         class_weights = list(class_weight.compute_class_weight('balanced',
                                                                np.unique(self.data_df["class_id"].values),
                                                                self.data_df["class_id"].values
                                                                )
                              )
-        self.class_weights = {}
-        for i in range(len(class_weights)):
-            self.class_weights[i] = class_weights[i]
-        self.validation_split = 0.15
+        self.class_weights = dict(enumerate(class_weights))
+        self.validation_split = 0.2
         self.datagen = None
         self.clean_datagen = None
 
@@ -45,7 +43,8 @@ class ImagesDataSet:
         self.test_ds = None
 
     def build(self):
-        self.datagen = ImageDataGenerator(rescale=1. / 255.,
+        self.datagen = ImageDataGenerator(
+                                          # rescale=1. / 255.,
                                           samplewise_center=True,
                                           samplewise_std_normalization=True,
                                           rotation_range=8,
@@ -76,16 +75,21 @@ class ImagesDataSet:
                                                         x_col="image_name",
                                                         y_col="class_id",
                                                         subset="validation",
+                                                        validate_filenames=True,
                                                         batch_size=self.batch_size,
                                                         seed=42,
-                                                        shuffle=False,
+                                                        shuffle=True,
                                                         class_mode="categorical",
                                                         target_size=(self.image_size, self.image_size)
                                                         )
         pass
 
-    def build_check_gen(self, batch_size=640):
-        self.clean_datagen = ImageDataGenerator(rescale=1. / 255.)
+    def build_check_gen(self, batch_size=320):
+        self.clean_datagen = ImageDataGenerator(
+                                                # rescale=1. / 255.
+                                                samplewise_center=True,
+                                                samplewise_std_normalization=True,
+                                                )
         self.all_gen = self.clean_datagen.flow_from_dataframe(dataframe=self.data_df,
                                                               directory=self.data_images_dir,
                                                               x_col="image_name",
@@ -98,13 +102,10 @@ class ImagesDataSet:
 
     def create_data_from_gen(self):
         len_data = len(self.all_gen.filenames)
-        self.build_check_gen(int(len_data//2))
+        self.build_check_gen(int(len_data//16))
         for x_data, y_data in self.all_gen:
             continue
         return x_data, y_data
-
-
-        pass
 
     def build_test_ds(self, image_dir):
         self.test_ds = tf.keras.utils.image_dataset_from_directory(directory=image_dir,
@@ -142,3 +143,4 @@ if __name__ == "__main__":
     dataset.augmentation = False
     dataset.build()
     plot_augmentation(dataset.train_gen, n_rows=5, n_cols=10)
+    plot_augmentation(dataset.val_gen, n_rows=5, n_cols=10)
