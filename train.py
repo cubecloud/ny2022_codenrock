@@ -12,7 +12,7 @@ from models import resnet50v2_original_model
 from dataset import ImagesDataSet
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-__version__ = 0.005
+__version__ = 0.006
 
 home_dir = os.getcwd()
 base_dir = os.path.join(home_dir, 'data')
@@ -197,8 +197,8 @@ if __name__ == "__main__":
     start_patience = round(epochs * 0.04)
 
     print(f'Image Size = {image_size}x{image_size}')
-    dataset = ImagesDataSet(os.path.join(os.getcwd(), "data", "train"),
-                            os.path.join(os.getcwd(), "data", "train.csv"),
+    dataset = ImagesDataSet(train_dir,
+                            os.path.join(base_dir, "train.csv"),
                             image_size=image_size,
                             )
     dataset.batch_size = batch_size
@@ -210,23 +210,23 @@ if __name__ == "__main__":
     tr.es_patience = 20
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
-    # tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate*2,
-    #                                        nesterov=True,
-    #                                        momentum=0.9
-    #                                        )
+    tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate*10,
+                                           nesterov=True,
+                                           momentum=0.9
+                                           )
 
-    # tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
-    #                                                                      tr.dataset.image_size) + (3,),
-    #                                                         num_classes=dataset.num_classes)
+    tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
+                                                                         tr.dataset.image_size) + (3,),
+                                                            num_classes=dataset.num_classes)
     tr.train()
     end = datetime.datetime.now()
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
-    tr.figshow_base(save_figure=False)
+    tr.figshow_base(save_figure=True)
 
     """ Checking train on all available data """
     dataset.build_check_gen(batch_size=batch_size)
     tr.evaluate(dataset.all_gen)
     """ Check confusion matrix """
-    # tr.figshow_matrix()
+    tr.figshow_matrix()
 
     print("ok")

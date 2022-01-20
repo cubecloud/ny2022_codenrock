@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import pandas as pd
 from sklearn.utils import class_weight
@@ -29,12 +28,11 @@ class ImagesDataSet:
 
         self.batch_size = 32
         self.num_classes = self.data_df["class_id"].nunique()
-        class_weights = list(class_weight.compute_class_weight('balanced',
-                                                               np.unique(self.data_df["class_id"].values),
-                                                               self.data_df["class_id"].values
-                                                               )
-                             )
-        self.class_weights = dict(enumerate(class_weights))
+        cl_weights = list(class_weight.compute_class_weight('balanced',
+                                                            np.unique(self.data_df["class_id"].values),
+                                                            self.data_df["class_id"].values)
+                          )
+        self.class_weights = dict(enumerate(cl_weights))
         self.validation_split = 0.2
 
         self.train_datagen = None
@@ -60,13 +58,13 @@ class ImagesDataSet:
         self.val_df.loc[:, 'split'] = 'val'
 
         self.train_datagen = ImageDataGenerator(
-                                                rescale=1. / 255,
-                                                shear_range=0.1,
-                                                zoom_range=0.1,
-                                                rotation_range=2,
-                                                brightness_range=(0.9, 1.1),
-                                                horizontal_flip=True,
-                                               )
+            rescale=1. / 255,
+            shear_range=0.1,
+            zoom_range=0.1,
+            rotation_range=2,
+            brightness_range=(0.9, 1.1),
+            horizontal_flip=True,
+        )
 
         self.val_datagen = ImageDataGenerator(rescale=1. / 255)
 
@@ -98,10 +96,10 @@ class ImagesDataSet:
 
     def build_check_gen(self, batch_size=32):
         self.clean_datagen = ImageDataGenerator(
-                                                rescale=1. / 255.
-                                                # samplewise_center=True,
-                                                # samplewise_std_normalization=True,
-                                                )
+            rescale=1. / 255.
+            # samplewise_center=True,
+            # samplewise_std_normalization=True,
+        )
         self.all_gen = self.clean_datagen.flow_from_dataframe(dataframe=self.data_df,
                                                               directory=self.data_images_dir,
                                                               x_col="image_name",

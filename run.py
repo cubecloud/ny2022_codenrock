@@ -7,7 +7,6 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 
 if __name__ == "__main__":
-
     home_dir = os.getcwd()
     base_dir = os.path.join(home_dir, 'data')
     train_dir = os.path.join(base_dir, 'train')
@@ -16,7 +15,7 @@ if __name__ == "__main__":
     out_dir = os.path.join(base_dir, 'out')
 
     image_size = 672
-    batch_size = 40
+    batch_size = 12
 
     files_list = [str(fname) for fname in os.listdir(test_dir)]
 
