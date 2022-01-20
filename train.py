@@ -67,7 +67,7 @@ class TrainNN:
                                monitor=self.monitor,
                                save_best_only=True,
                                )
-        rlrs = ReduceLROnPlateau(monitor=self.monitor, factor=0.07, patience=self.rlrs_patience, min_lr=1e-07)
+        rlrs = ReduceLROnPlateau(monitor=self.monitor, factor=0.7, patience=self.rlrs_patience, min_lr=1e-07)
         es = EarlyStopping(patience=self.es_patience, monitor=self.monitor, restore_best_weights=True)
         callbacks = [rlrs, chkp, es]
 
@@ -90,8 +90,28 @@ class TrainNN:
         self.model_compiled = True
         pass
 
-    def load_best_weights(self):
-        path_filename = f"{self.path_filename}.h5"
+    def fine_train(self):
+        self.compile()
+        self.load_best_weights()
+        chkp = ModelCheckpoint(f"{self.path_filename}"+"_at_{epoch:02d}.h5",
+                               save_freq='epoch',
+                               save_weights_only=True,
+                               verbose=1
+                               )
+        callbacks = [chkp]
+
+        self.history = self.keras_model.fit(self.dataset.all_gen,
+                                            epochs=self.epochs,
+                                            verbose=1,
+                                            callbacks=callbacks,
+                                            class_weight=self.class_weights
+                                            )
+        self.model_compiled = True
+        pass
+
+    def load_best_weights(self, path_filename=None):
+        if not path_filename:
+            path_filename = f"{self.path_filename}.h5"
         self.keras_model.load_weights(path_filename)
         pass
 
@@ -109,7 +129,7 @@ class TrainNN:
         self.keras_model.evaluate(Test)
         pass
 
-    def figshow_base(self, save_figure=True):
+    def figshow_base(self, save_figure=True, show_figure=True):
         def num_of_zeros(n):
             s = '{:.16f}'.format(n).split('.')[1]
             return len(s) - len(s.lstrip('0'))
@@ -168,7 +188,8 @@ class TrainNN:
                         bbox_inches=None, pad_inches=0.1,
                         metadata=None
                         )
-        plt.show()
+        if show_figure:
+            plt.show()
         pass
 
     def figshow_matrix(self, ):
@@ -192,8 +213,8 @@ if __name__ == "__main__":
     timezone = pytz.timezone("Europe/Moscow")
     image_size = 672
     batch_size = 12
-    epochs = 100
-    start_learning_rate = 0.0001
+    epochs = 140
+    start_learning_rate = 0.00007
     start_patience = round(epochs * 0.04)
 
     print(f'Image Size = {image_size}x{image_size}')
@@ -207,26 +228,33 @@ if __name__ == "__main__":
     tr = TrainNN(dataset)
     tr.monitor = "loss"
     tr.learning_rate = start_learning_rate
-    tr.es_patience = 20
+    tr.es_patience = 22
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
-    tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate*10,
-                                           nesterov=True,
-                                           momentum=0.9
-                                           )
-
-    tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
-                                                                         tr.dataset.image_size) + (3,),
-                                                            num_classes=dataset.num_classes)
+    # tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate*10,
+    #                                        nesterov=True,
+    #                                        momentum=0.9
+    #                                        )
+    #
+    # tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
+    #                                                                      tr.dataset.image_size) + (3,),
+    #                                                         num_classes=dataset.num_classes)
     tr.train()
     end = datetime.datetime.now()
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
-    tr.figshow_base(save_figure=True)
+    tr.figshow_base(save_figure=True, show_figure=True)
 
     """ Checking train on all available data """
     dataset.build_check_gen(batch_size=batch_size)
     tr.evaluate(dataset.all_gen)
     """ Check confusion matrix """
-    tr.figshow_matrix()
+    # tr.figshow_matrix()
 
+    dataset.build_check_gen(batch_size=batch_size, shuffle=True)
+    tr.learning_rate = 2e-7
+    tr.epochs = 20
+    tr.fine_train()
+
+    dataset.build_check_gen(batch_size=batch_size)
+    tr.evaluate(dataset.all_gen)
     print("ok")

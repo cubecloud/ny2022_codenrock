@@ -32,7 +32,6 @@ if __name__ == "__main__":
     print(f'Image Size = {image_size}x{image_size}')
 
     """ Universal part until this """
-
     dataset = ImagesDataSet(train_dir,
                             os.path.join(base_dir, "train.csv"),
                             image_size=image_size,
@@ -40,12 +39,11 @@ if __name__ == "__main__":
     dataset.batch_size = batch_size
     dataset.validation_split = 0.1
     dataset.build()
-
     tr = TrainNN(dataset)
     tr.monitor = "loss"
+    y_pred = tr.get_predict(test_gen)
     """ Universal part from this """
 
-    y_pred = tr.get_predict(test_gen)
     y_pred = np.argmax(y_pred, axis=1)
     submission_df = test_df.copy()
     submission_df['class_id'] = y_pred

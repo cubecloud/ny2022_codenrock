@@ -14,7 +14,7 @@ class ImagesDataSet:
                  data_df_path_filename: str = '',
                  image_size=150,
                  ):
-        self.version = "v3"
+        self.version = "ds_v3"
         self.image_size = image_size
         assert data_images_dir, "Error: set the train directory!"
         self.data_images_dir = data_images_dir
@@ -57,14 +57,13 @@ class ImagesDataSet:
         self.train_df.loc[:, 'split'] = 'train'
         self.val_df.loc[:, 'split'] = 'val'
 
-        self.train_datagen = ImageDataGenerator(
-            rescale=1. / 255,
-            shear_range=0.1,
-            zoom_range=0.1,
-            rotation_range=2,
-            brightness_range=(0.9, 1.1),
-            horizontal_flip=True,
-        )
+        self.train_datagen = ImageDataGenerator(rescale=1. / 255,
+                                                shear_range=0.12,
+                                                zoom_range=0.12,
+                                                rotation_range=3,
+                                                brightness_range=(0.9, 1.1),
+                                                horizontal_flip=True,
+                                                )
 
         self.val_datagen = ImageDataGenerator(rescale=1. / 255)
 
@@ -94,7 +93,7 @@ class ImagesDataSet:
                                                             target_size=(self.image_size, self.image_size)
                                                             )
 
-    def build_check_gen(self, batch_size=32):
+    def build_check_gen(self, batch_size=32, shuffle=False):
         self.clean_datagen = ImageDataGenerator(
             rescale=1. / 255.
             # samplewise_center=True,
@@ -104,19 +103,12 @@ class ImagesDataSet:
                                                               directory=self.data_images_dir,
                                                               x_col="image_name",
                                                               y_col="class_id",
-                                                              shuffle=False,
+                                                              shuffle=shuffle,
                                                               batch_size=batch_size,
                                                               class_mode="categorical",
                                                               target_size=(self.image_size, self.image_size)
                                                               )
 
-    def build_test_ds(self, image_dir):
-        self.test_ds = tf.keras.utils.image_dataset_from_directory(directory=image_dir,
-                                                                   labels=None,
-                                                                   label_mode='categorical',
-                                                                   color_mode="rgb",
-                                                                   image_size=(self.image_size, self.image_size)
-                                                                   )
         pass
 
 
