@@ -14,13 +14,13 @@ if __name__ == "__main__":
     test_dir = os.path.join(base_dir, 'test')
     out_dir = os.path.join(base_dir, 'out')
 
-    image_size = 672
-    batch_size = 12
+    image_size = 448
+    batch_size = 24
 
     files_list = [str(fname) for fname in os.listdir(test_dir)]
 
     test_df = pd.DataFrame(data=files_list, columns=['image_name'])
-    datagen = ImageDataGenerator(rescale=1. / 255.)
+    datagen = ImageDataGenerator(rescale=(1 / 127.5) - 1.0)
     test_gen = datagen.flow_from_dataframe(dataframe=test_df,
                                            directory=test_dir,
                                            x_col="image_name",

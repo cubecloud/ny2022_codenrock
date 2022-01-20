@@ -12,7 +12,7 @@ from models import resnet50v2_original_model
 from dataset import ImagesDataSet
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-__version__ = 0.006
+__version__ = 0.007
 
 home_dir = os.getcwd()
 base_dir = os.path.join(home_dir, 'data')
@@ -27,16 +27,15 @@ class TrainNN:
                  ):
         self.dataset = dataset
         self.y_Pred = None
-        self.experiment_name = f"{self.dataset.version}"
+        self.experiment_name = f"{self.dataset.version}_tr_{__version__}"
         self.history = None
         self.epochs = 15
 
-        """ Use it only if not using TimeSeries Generator"""
         self.batch_size = None
         self.monitor = "categorical_accuracy"
         self.loss = "categorical_crossentropy"
-        # self.metric = "categorical_accuracy"
-        self.metric = tfa.metrics.F1Score(num_classes=dataset.num_classes)
+        # self.metrics = [CustomF1Score(), tfa.metrics.F1Score(num_classes=dataset.num_classes)]
+        self.metrics = [tfa.metrics.F1Score(num_classes=dataset.num_classes)]
         self.path_filename: str = ''
         self.model_compiled = False
         self.es_patience = 15
@@ -54,7 +53,7 @@ class TrainNN:
         self.keras_model.summary()
         self.keras_model.compile(optimizer=self.optimizer,
                                  loss=self.loss,
-                                 metrics=[self.metric],
+                                 metrics=self.metrics,
                                  )
         self.model_compiled = True
         pass
@@ -67,8 +66,8 @@ class TrainNN:
                                monitor=self.monitor,
                                save_best_only=True,
                                )
-        rlrs = ReduceLROnPlateau(monitor=self.monitor, factor=0.7, patience=self.rlrs_patience, min_lr=1e-07)
-        es = EarlyStopping(patience=self.es_patience, monitor=self.monitor, restore_best_weights=True)
+        rlrs = ReduceLROnPlateau(monitor=self.monitor, factor=0.8, patience=self.rlrs_patience, min_lr=1e-07)
+        es = EarlyStopping(patience=self.es_patience, monitor=self.monitor, restore_best_weights=True, verbose=1)
         callbacks = [rlrs, chkp, es]
 
         path_filename = f"{self.path_filename}_NN.png"
@@ -173,7 +172,8 @@ class TrainNN:
             for plot_name in to_plot2:
                 if "f1" in plot_name:
                     f1_arr = np.array(self.history.history[plot_name])
-                    f1_arr = f1_arr.mean(axis=1)
+                    if len(f1_arr.shape) > 1:
+                        f1_arr = f1_arr.mean(axis=1)
                     plt.plot(N, f1_arr, label=plot_name)
                 else:
                     plt.plot(N, self.history.history[plot_name], label=plot_name)
@@ -211,10 +211,10 @@ class TrainNN:
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 672
-    batch_size = 12
+    image_size = 448
+    batch_size = 24
     epochs = 140
-    start_learning_rate = 0.00007
+    start_learning_rate = 0.00005
     start_patience = round(epochs * 0.04)
 
     print(f'Image Size = {image_size}x{image_size}')
@@ -231,14 +231,7 @@ if __name__ == "__main__":
     tr.es_patience = 22
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
-    # tr.optimizer = tf.keras.optimizers.SGD(learning_rate=tr.learning_rate*10,
-    #                                        nesterov=True,
-    #                                        momentum=0.9
-    #                                        )
-    #
-    # tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
-    #                                                                      tr.dataset.image_size) + (3,),
-    #                                                         num_classes=dataset.num_classes)
+
     tr.train()
     end = datetime.datetime.now()
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
@@ -248,13 +241,17 @@ if __name__ == "__main__":
     dataset.build_check_gen(batch_size=batch_size)
     tr.evaluate(dataset.all_gen)
     """ Check confusion matrix """
-    # tr.figshow_matrix()
+    tr.figshow_matrix()
 
-    dataset.build_check_gen(batch_size=batch_size, shuffle=True)
-    tr.learning_rate = 2e-7
-    tr.epochs = 20
+    dataset.build_check_gen(batch_size=batch_size, shuffle=True, augmentation=True)
+    tr.learning_rate = 1e-7
+    tr.epochs = 12
+    tr.compile()
+    # tr.load_best_weights(path_filename='/home/cubecloud/Python/projects/ny2022_codenrock/data/weight/ds_v5_tr_0.007_ResNet50V2_imagenet_3_448x448_loss_at_06.h5')
     tr.fine_train()
 
     dataset.build_check_gen(batch_size=batch_size)
     tr.evaluate(dataset.all_gen)
+    tr.figshow_matrix()
+
     print("ok")

@@ -14,7 +14,7 @@ class ImagesDataSet:
                  data_df_path_filename: str = '',
                  image_size=150,
                  ):
-        self.version = "ds_v3"
+        self.version = "ds_v5"
         self.image_size = image_size
         assert data_images_dir, "Error: set the train directory!"
         self.data_images_dir = data_images_dir
@@ -25,7 +25,6 @@ class ImagesDataSet:
                                           'class_id': str
                                           }
                                    )
-
         self.batch_size = 32
         self.num_classes = self.data_df["class_id"].nunique()
         cl_weights = list(class_weight.compute_class_weight('balanced',
@@ -41,11 +40,18 @@ class ImagesDataSet:
 
         self.train_gen = None
         self.val_gen = None
-
         self.all_gen = None
-        self.test_ds = None
+
         self.train_df = pd.DataFrame()
         self.val_df = pd.DataFrame()
+        self.augmentation_kwargs = {'rescale': (1 / 127.5) - 1.0,
+                                    'shear_range': 0.12,
+                                    'zoom_range': 0.12,
+                                    'rotation_range': 3,
+                                    'brightness_range': (0.9, 1.1),
+                                    'horizontal_flip': True,
+                                    }
+        self.rescale_kwargs = {'rescale': (1 / 127.5) - 1.0}
 
     def build(self):
         self.train_df, self.val_df = train_test_split(self.data_df,
@@ -57,15 +63,9 @@ class ImagesDataSet:
         self.train_df.loc[:, 'split'] = 'train'
         self.val_df.loc[:, 'split'] = 'val'
 
-        self.train_datagen = ImageDataGenerator(rescale=1. / 255,
-                                                shear_range=0.12,
-                                                zoom_range=0.12,
-                                                rotation_range=3,
-                                                brightness_range=(0.9, 1.1),
-                                                horizontal_flip=True,
-                                                )
+        self.train_datagen = ImageDataGenerator(**self.augmentation_kwargs)
 
-        self.val_datagen = ImageDataGenerator(rescale=1. / 255)
+        self.val_datagen = ImageDataGenerator(**self.rescale_kwargs)
 
         self.train_gen = self.train_datagen.flow_from_dataframe(dataframe=self.train_df,
                                                                 directory=self.data_images_dir,
@@ -93,12 +93,14 @@ class ImagesDataSet:
                                                             target_size=(self.image_size, self.image_size)
                                                             )
 
-    def build_check_gen(self, batch_size=32, shuffle=False):
-        self.clean_datagen = ImageDataGenerator(
-            rescale=1. / 255.
-            # samplewise_center=True,
-            # samplewise_std_normalization=True,
-        )
+    def build_check_gen(self, batch_size=32, shuffle=False, augmentation=False):
+        if augmentation:
+            kwargs = self.augmentation_kwargs
+        else:
+            kwargs = self.rescale_kwargs
+
+        self.clean_datagen = ImageDataGenerator(**kwargs)
+
         self.all_gen = self.clean_datagen.flow_from_dataframe(dataframe=self.data_df,
                                                               directory=self.data_images_dir,
                                                               x_col="image_name",
