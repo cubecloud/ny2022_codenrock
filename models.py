@@ -6,7 +6,7 @@ def resnet50v2_classification_model(input_shape=(228, 228, 3),
                                     filters=64,
                                     num_classes=3,
                                     ):
-    version = 2
+    version = 3
     new_in = layers.Input(shape=input_shape)
     base_model = tf.keras.applications.ResNet50V2(include_top=False,
                                                   weights=None,
@@ -31,11 +31,11 @@ def resnet50v2_classification_model(input_shape=(228, 228, 3),
     return keras_model, name_of_model
 
 
-def resnet50v2_original_model(input_shape=(228, 228, 3),
+def resnet50v2_original_model(input_shape=(224, 224, 3),
                               filters=64,
                               num_classes=3,
                               ):
-    version = 3
+    version = 4
     base_model = tf.keras.applications.ResNet50V2(include_top=False,
                                                   weights=None,
                                                   input_tensor=None,
@@ -45,8 +45,9 @@ def resnet50v2_original_model(input_shape=(228, 228, 3),
                                                   classifier_activation="softmax",
                                                   )
     base_model.trainable = True
-    x = layers.Dense(filters * 8, activation='relu')(base_model.output)
-    x = layers.Dropout(0.43)(x)
+    x = layers.Dropout(0.47)(base_model.output)
+    x = layers.Dense(filters * 8, activation='relu')(x)
+    x = layers.Dropout(0.35)(x)
     x = layers.Dense(int(filters / 4), activation='relu')(x)
     x_out = layers.Dense(num_classes, activation='softmax')(x)
     keras_model = tf.keras.models.Model(inputs=base_model.input, outputs=x_out)

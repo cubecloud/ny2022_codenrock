@@ -52,4 +52,5 @@ dependencies:
     - clang~=5.0
     - opt-einsum~=3.3.0
     - tensorflow-addons==0.14.0
+    - opencv-python>=4.4.0.44
 prefix: /home/cubecloud/anaconda3/envs/ny2022-santa

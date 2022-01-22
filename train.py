@@ -4,13 +4,14 @@ import pytz
 import datetime
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, LearningRateScheduler
 import matplotlib.pyplot as plt
 import tensorflow_addons as tfa
 import seaborn as sns
 from models import resnet50v2_original_model
 from dataset import ImagesDataSet
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from math import cos, pi
 
 __version__ = 0.007
 
@@ -25,13 +26,14 @@ class TrainNN:
     def __init__(self,
                  dataset: ImagesDataSet,
                  ):
+
         self.dataset = dataset
         self.y_Pred = None
         self.experiment_name = f"{self.dataset.version}_tr_{__version__}"
         self.history = None
         self.epochs = 15
 
-        self.batch_size = None
+        self.batch_size = 32
         self.monitor = "categorical_accuracy"
         self.loss = "categorical_crossentropy"
         # self.metrics = [CustomF1Score(), tfa.metrics.F1Score(num_classes=dataset.num_classes)]
@@ -43,10 +45,27 @@ class TrainNN:
         self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
                                                                                  self.dataset.image_size) + (3,),
                                                                     num_classes=3)
-
-        self.learning_rate = 3e-5
+        self.learning_rate = 1e-4
+        self.min_learning_rate = 3e-7
+        self.warmup = 10
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
+        # self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.learning_rate,
+        #                                          nesterov=True,
+        #                                          momentum=0.9
+        #                                          )
         self.class_weights = self.dataset.class_weights
+        self.total_batches = (self.epochs - self.warmup) * (self.dataset.train_gen.x_len / self.batch_size)
+        self.count_cm: int = 0
+
+    def _scheduler(self, epoch, lr):
+        """ Warm up from zero to learning_rate """
+        if epoch <= self.warmup:
+            lr = (self.learning_rate / self.warmup) * (epoch + 1)
+        else:
+            """ using cos learning rate """
+            lr = self.min_learning_rate + 0.5 * (self.learning_rate - self.min_learning_rate) * (
+                    1 + cos(epoch * pi / self.epochs))
+        return lr
 
     def compile(self):
         self.path_filename = os.path.join(weight_dir, f"{self.experiment_name}_{self.net_name}_{self.monitor}")
@@ -55,12 +74,16 @@ class TrainNN:
                                  loss=self.loss,
                                  metrics=self.metrics,
                                  )
+        self.total_batches = (self.epochs - self.warmup) * (self.dataset.train_gen.x_len / self.batch_size)
         self.model_compiled = True
         pass
 
     def train(self):
         if not self.model_compiled:
             self.compile()
+
+        lrs = LearningRateScheduler(self._scheduler, verbose=0)
+
         chkp = ModelCheckpoint(f"{self.path_filename}.h5",
                                mode='auto',
                                monitor=self.monitor,
@@ -68,7 +91,7 @@ class TrainNN:
                                )
         rlrs = ReduceLROnPlateau(monitor=self.monitor, factor=0.8, patience=self.rlrs_patience, min_lr=1e-07)
         es = EarlyStopping(patience=self.es_patience, monitor=self.monitor, restore_best_weights=True, verbose=1)
-        callbacks = [rlrs, chkp, es]
+        callbacks = [lrs, chkp, es]
 
         path_filename = f"{self.path_filename}_NN.png"
 
@@ -92,7 +115,7 @@ class TrainNN:
     def fine_train(self):
         self.compile()
         self.load_best_weights()
-        chkp = ModelCheckpoint(f"{self.path_filename}"+"_at_{epoch:02d}.h5",
+        chkp = ModelCheckpoint(f"{self.path_filename}" + "_at_{epoch:02d}.h5",
                                save_freq='epoch',
                                save_weights_only=True,
                                verbose=1
@@ -132,6 +155,7 @@ class TrainNN:
         def num_of_zeros(n):
             s = '{:.16f}'.format(n).split('.')[1]
             return len(s) - len(s.lstrip('0'))
+
         sub_plots = 1
         plot_names_list = list(self.history.history.keys())
         subplot2_list = ['mae', 'mse', 'f1', 'dice_cce_loss']
@@ -144,7 +168,7 @@ class TrainNN:
 
         if to_plot2:
             sub_plots = 2
-        fig = plt.figure(figsize=(30, 9*sub_plots))
+        fig = plt.figure(figsize=(30, 9 * sub_plots))
         sns.set_style("white")
         ax1 = fig.add_subplot(1, sub_plots, 1)
         ax1.set_axisbelow(True)
@@ -155,9 +179,9 @@ class TrainNN:
 
         for plot_name in to_plot1:
             if "lr" in plot_name:
-                mult = 10 ** (num_of_zeros(self.learning_rate)+2)
+                mult = 10 ** (num_of_zeros(self.learning_rate) + 2)
                 lr_arr = np.array(self.history.history[plot_name])
-                lr_arr = lr_arr * mult//10 if mult > 2 else lr_arr * mult
+                lr_arr = lr_arr * mult / 10 if mult > 2 else lr_arr * mult
                 plt.plot(N, lr_arr, label=f"{plot_name}*{mult}")
             else:
                 plt.plot(N, self.history.history[plot_name], label=plot_name)
@@ -192,29 +216,40 @@ class TrainNN:
             plt.show()
         pass
 
-    def figshow_matrix(self, ):
+    def figshow_matrix(self, save_figure=True, show_figure=True):
         classes = list(self.class_weights.keys())
         dataset.build_check_gen(batch_size=1280)
-        x_test, y_test = next(self.dataset.all_gen)
+        x_test, y_test = self.dataset.all_gen.__getitem__(0)
         y_pred = self.get_predict(x_test)
-        y_pred = np.expand_dims(np.argmax(y_pred, axis=1), axis=1)
-        y_test = np.expand_dims(np.argmax(y_test, axis=1), axis=1)
+        y_pred = np.argmax(y_pred, axis=1)
+        y_test = np.argmax(y_test, axis=1)
         cm = confusion_matrix(y_test, y_pred, labels=classes)
         fig, ax = plt.subplots(figsize=(10, 10))
         ax.set_title('Confusion Matrix')
         cm_disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=classes)
         cm_disp.plot(ax=ax)
         plt.xticks(rotation=45)
-        plt.show()
+        self.count_cm += 1
+        if save_figure:
+            path_filename = f"{self.path_filename}_cm_{self.count_cm}.png"
+            plt.savefig(path_filename,
+                        dpi=96, facecolor='w',
+                        edgecolor='w', orientation='portrait',
+                        format=None, transparent=False,
+                        bbox_inches=None, pad_inches=0.1,
+                        metadata=None
+                        )
+        if show_figure:
+            plt.show()
         pass
 
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 448
-    batch_size = 24
-    epochs = 140
-    start_learning_rate = 0.00005
+    image_size = 672
+    batch_size = 12
+    epochs = 200
+    start_learning_rate = 4e-05
     start_patience = round(epochs * 0.04)
 
     print(f'Image Size = {image_size}x{image_size}')
@@ -228,7 +263,7 @@ if __name__ == "__main__":
     tr = TrainNN(dataset)
     tr.monitor = "loss"
     tr.learning_rate = start_learning_rate
-    tr.es_patience = 22
+    tr.es_patience = 25
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
 
@@ -241,17 +276,16 @@ if __name__ == "__main__":
     dataset.build_check_gen(batch_size=batch_size)
     tr.evaluate(dataset.all_gen)
     """ Check confusion matrix """
-    tr.figshow_matrix()
+    tr.figshow_matrix(save_figure=True, show_figure=False)
 
-    dataset.build_check_gen(batch_size=batch_size, shuffle=True, augmentation=True)
+    dataset.build_check_gen(batch_size=batch_size, shuffle=True, augmentation=True, subset='train')
     tr.learning_rate = 1e-7
     tr.epochs = 12
     tr.compile()
     # tr.load_best_weights(path_filename='/home/cubecloud/Python/projects/ny2022_codenrock/data/weight/ds_v5_tr_0.007_ResNet50V2_imagenet_3_448x448_loss_at_06.h5')
     tr.fine_train()
 
-    dataset.build_check_gen(batch_size=batch_size)
+    dataset.build_check_gen(batch_size=batch_size, shuffle=False, subset='validation')
     tr.evaluate(dataset.all_gen)
-    tr.figshow_matrix()
-
+    tr.figshow_matrix(save_figure=True, show_figure=False)
     print("ok")
