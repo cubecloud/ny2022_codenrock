@@ -13,7 +13,7 @@ from dataset import ImagesDataSet
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from math import cos, pi
 
-__version__ = 0.007
+__version__ = 0.009
 
 home_dir = os.getcwd()
 base_dir = os.path.join(home_dir, 'data')
@@ -44,7 +44,9 @@ class TrainNN:
         self.rlrs_patience = 8
         self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
                                                                                  self.dataset.image_size) + (3,),
-                                                                    num_classes=3)
+                                                                    num_classes=3,
+                                                                    base_model_trainable=True,
+                                                                    )
         self.learning_rate = 1e-4
         self.min_learning_rate = 3e-7
         self.warmup = 10
@@ -243,13 +245,14 @@ class TrainNN:
             plt.show()
         pass
 
+
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
     image_size = 224
-    batch_size = 24
-    epochs = 200
-    start_learning_rate = 4e-05
+    batch_size = 12
+    epochs = 250
+    start_learning_rate = 1e-05
     start_patience = round(epochs * 0.04)
     show_figure = True
     print(f'Image Size = {image_size}x{image_size}')
@@ -264,6 +267,7 @@ if __name__ == "__main__":
     tr = TrainNN(dataset)
     tr.monitor = "loss"
     tr.learning_rate = start_learning_rate
+    tr.min_learning_rate = 1e-6
     tr.es_patience = 25
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
@@ -273,15 +277,21 @@ if __name__ == "__main__":
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
     tr.figshow_base(save_figure=True, show_figure=show_figure)
 
-    """ Checking train on all available data """
+    """ Checking train on all available data, w/o base_model """
     dataset.build_check_gen(batch_size=batch_size)
+    tr.load_best_weights()
     tr.evaluate(dataset.all_gen)
     """ Check confusion matrix """
     tr.figshow_matrix(save_figure=True, show_figure=show_figure)
 
     dataset.build_check_gen(batch_size=batch_size, shuffle=True, augmentation=True, subset='train')
     tr.learning_rate = 1e-7
-    tr.epochs = 12
+    tr.epochs = 2
+    tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
+                                                                         tr.dataset.image_size) + (3,),
+                                                            num_classes=3,
+                                                            base_model_trainable=True,
+                                                            )
     tr.compile()
     # tr.load_best_weights(path_filename='/home/cubecloud/Python/projects/ny2022_codenrock/data/weight/ds_v5_tr_0.007_ResNet50V2_imagenet_3_448x448_loss_at_06.h5')
     tr.fine_train()

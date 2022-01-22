@@ -9,7 +9,7 @@ import albumentations as A
 from imageutils import AugmentedImageDataGenerator
 import cv2
 
-__version__ = 0.009
+__version__ = 0.011
 
 
 class ImagesDataSet:
@@ -18,7 +18,7 @@ class ImagesDataSet:
                  data_df_path_filename: str = '',
                  image_size=150,
                  ):
-        self.version = "ds_v9"
+        self.version = "ds_v11"
         self.image_size = image_size
         assert data_images_dir, "Error: set the train directory!"
         self.data_images_dir = data_images_dir
@@ -53,12 +53,12 @@ class ImagesDataSet:
                                                   p=0.5),
                                          A.RandomResizedCrop(height=self.image_size,
                                                              width=self.image_size,
-                                                             scale=(0.24, 1.12),
-                                                             ratio=(0.88, 1.12),
+                                                             scale=(0.08, 1.0),
+                                                             ratio=(0.88, 1.0),
                                                              p=1.0),
                                          A.HorizontalFlip(p=0.5),
-                                         A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2),
-                                                                    contrast_limit=(-0.2, 0.2),
+                                         A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1),
+                                                                    contrast_limit=(-0.1, 0.1),
                                                                     p=0.5),
                                          A.HueSaturationValue(p=0.33),
                                          A.RGBShift(r_shift_limit=15,
@@ -120,11 +120,20 @@ class ImagesDataSet:
                 if class_count == ncat_bal:
                     continue
                 mask = self.train_df['class_id'] == class_name
-                temp_df = self.train_df.loc[mask].sample(ncat_bal - class_count, replace=True, random_state=42)
+                bal_def = ncat_bal - class_count
+                frac_def = bal_def / class_count
+                if int(frac_def) == 0:
+                    temp_df = self.train_df.loc[mask].sample(n=bal_def, random_state=24)
+                else:
+                    for i in range(int(frac_def)):
+                        temp_df = self.train_df.loc[mask]
+                        new_df = pd.concat([temp_df, new_df])
+                    temp_df = self.train_df.loc[mask].sample(n=bal_def - (int(frac_def) * class_count), replace=True,
+                                                        random_state=24)
                 new_df = pd.concat([temp_df, new_df])
 
             self.train_df = new_df
-
+            self.train_df.reset_index(inplace=True, drop=True)
             train_classes, train_count = np.unique(self.train_df["class_id"], return_counts=True)
             val_classes, val_count = np.unique(self.val_df["class_id"], return_counts=True)
             train_files_count = len(np.unique(self.train_df["image_name"]))
