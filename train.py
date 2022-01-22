@@ -270,7 +270,7 @@ if __name__ == "__main__":
     tr.train()
     end = datetime.datetime.now()
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
-    tr.figshow_base(save_figure=True, show_figure=True)
+    tr.figshow_base(save_figure=True, show_figure=False)
 
     """ Checking train on all available data """
     dataset.build_check_gen(batch_size=batch_size)
