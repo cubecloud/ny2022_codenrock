@@ -107,7 +107,7 @@ class TrainNN:
                                             epochs=self.epochs,
                                             verbose=1,
                                             callbacks=callbacks,
-                                            class_weight=self.class_weights
+                                            # class_weight=self.class_weights
                                             )
         self.model_compiled = True
         pass
@@ -246,13 +246,14 @@ class TrainNN:
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 672
-    batch_size = 12
+    image_size = 224
+    batch_size = 24
     epochs = 200
     start_learning_rate = 4e-05
     start_patience = round(epochs * 0.04)
-
+    show_figure = True
     print(f'Image Size = {image_size}x{image_size}')
+
     dataset = ImagesDataSet(train_dir,
                             os.path.join(base_dir, "train.csv"),
                             image_size=image_size,
@@ -270,13 +271,13 @@ if __name__ == "__main__":
     tr.train()
     end = datetime.datetime.now()
     print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
-    tr.figshow_base(save_figure=True, show_figure=False)
+    tr.figshow_base(save_figure=True, show_figure=show_figure)
 
     """ Checking train on all available data """
     dataset.build_check_gen(batch_size=batch_size)
     tr.evaluate(dataset.all_gen)
     """ Check confusion matrix """
-    tr.figshow_matrix(save_figure=True, show_figure=False)
+    tr.figshow_matrix(save_figure=True, show_figure=show_figure)
 
     dataset.build_check_gen(batch_size=batch_size, shuffle=True, augmentation=True, subset='train')
     tr.learning_rate = 1e-7
@@ -287,5 +288,5 @@ if __name__ == "__main__":
 
     dataset.build_check_gen(batch_size=batch_size, shuffle=False, subset='validation')
     tr.evaluate(dataset.all_gen)
-    tr.figshow_matrix(save_figure=True, show_figure=False)
+    tr.figshow_matrix(save_figure=True, show_figure=show_figure)
     print("ok")

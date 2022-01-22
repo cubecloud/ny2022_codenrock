@@ -14,7 +14,7 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-__version__ = 0.002
+__version__ = 0.003
 
 
 class AugmentedImageDataGenerator(Sequence):
@@ -28,11 +28,11 @@ class AugmentedImageDataGenerator(Sequence):
                  dataframe: pd.DataFrame,
                  directory: str,
                  x_col: str,
-                 y_col: str,
                  num_classes: int,
                  batch_size: int,
                  target_size: Tuple,
-                 augmentations_list=None,
+                 y_col: str = None,
+                 augmentations_list: object = None,
                  augmentations: bool = True,
                  shuffle: bool = True,
                  validate_filenames: bool = False,
@@ -42,12 +42,12 @@ class AugmentedImageDataGenerator(Sequence):
         # super().__init__(
         #     preprocessing_function=self.augment_pairs,
         #     **kwargs)
+
         self.df = dataframe
         self.directory = directory
         self.x_col = x_col
         self.y_col = y_col
         self.augmentations_list = augmentations_list
-        self.num_classes = num_classes
         self.batch_size = batch_size
         self.augmentations = augmentations
         self.shuffle = shuffle
@@ -55,16 +55,26 @@ class AugmentedImageDataGenerator(Sequence):
         self.img_height = self.target_size[0]
         self.img_width = self.target_size[1]
         self.validate_filenames = validate_filenames
+        self.subset = subset
+        self.__check_directory()
         self.path_filenames_list: list = []
         self.classes_names_list: list = []
-        self.__check_directory()
         self.x_len: int = 0
         self.__check_filenames()
+        self.len: int = 0
+        self.len_calc()
+
         self.x_cache: list = []
-        self.subset = subset
-        self.y_set = tf.keras.utils.to_categorical(y=self.classes_names_list,
-                                                   num_classes=self.num_classes,
-                                                   )
+
+        self.num_classes = num_classes
+
+        if self.y_col:
+            self.y_set = tf.keras.utils.to_categorical(y=self.classes_names_list,
+                                                       num_classes=self.num_classes,
+                                                       )
+        else:
+            self.y_set = None
+
         self.indexes = np.arange(self.x_len)
 
         if cache:
@@ -121,19 +131,32 @@ class AugmentedImageDataGenerator(Sequence):
 
     def __check_filenames(self):
         count = 0
-        for filename, class_name in zip(self.df[self.x_col], self.df[self.y_col]):
-            path_filename = os.path.join(self.directory, filename)
-            if self.validate_filenames:
-                if os.path.isfile(path_filename):
+        if self.subset != 'test' and self.y_col:
+            for filename, class_name in zip(self.df[self.x_col], self.df[self.y_col]):
+                path_filename = os.path.join(self.directory, filename)
+                if self.validate_filenames:
+                    if os.path.isfile(path_filename):
+                        self.path_filenames_list.append(path_filename)
+                        self.classes_names_list.append(class_name)
+                    else:
+                        count += 1
+                else:
                     self.path_filenames_list.append(path_filename)
                     self.classes_names_list.append(class_name)
+        else:
+            for filename in self.df[self.x_col]:
+                path_filename = os.path.join(self.directory, filename)
+                if self.validate_filenames:
+                    if os.path.isfile(path_filename):
+                        self.path_filenames_list.append(path_filename)
+                    else:
+                        count += 1
                 else:
-                    count += 1
-            else:
-                self.path_filenames_list.append(path_filename)
-                self.classes_names_list.append(class_name)
+                    self.path_filenames_list.append(path_filename)
+
         if self.validate_filenames:
-            msg = f"Validated {self.df.shape[0]}/{len(self.path_filenames_list)} files in {self.directory}"
+            msg = f"{self.subset} subset: validated {self.df.shape[0]}/{len(self.path_filenames_list)} " \
+                  f"records and {len(set(self.path_filenames_list))} files in {self.directory}"
             print(msg)
         self.x_len = len(self.path_filenames_list)
         pass
@@ -150,12 +173,12 @@ class AugmentedImageDataGenerator(Sequence):
         if self.subset == 'train':
             prefetch_width = self.img_width + self.img_width // 10
             prefetch_height = self.img_height + self.img_height // 10
-        elif self.subset == 'validation':
+        elif self.subset == 'validation' or self.subset == 'test':
             prefetch_width = self.img_width
             prefetch_height = self.img_height
         else:
             msg = f'Error: unknown subset type {self.subset}'
-            assert self.subset == 'train' or self.subset == 'validation', msg
+            assert self.subset == 'train' or self.subset == 'validation' or self.subset == 'test', msg
 
         for path_filename in self.path_filenames_list:
             image = self.__get_image_from_file(path_filename)
@@ -178,12 +201,15 @@ class AugmentedImageDataGenerator(Sequence):
     def check(self, index):
         return self.__getitem__(index)
 
+    def len_calc(self):
+        batches = self.x_len / self.batch_size
+        self.len = int(max(int(batches), int(batches) if batches.is_integer() else int(batches) + 1))
+
     def __len__(self):
         """ Denotes the number of batches per epoch """
-        return int(self.x_len // self.batch_size)
+        return self.len
 
     def __getitem__(self, index):
-
         data_index_min = int(index * self.batch_size)
         data_index_max = int(min((index + 1) * self.batch_size, self.x_len))
 
@@ -194,23 +220,29 @@ class AugmentedImageDataGenerator(Sequence):
         y_batch = np.empty((this_batch_size, self.num_classes), dtype=np.uint8)
 
         for i, sample_index in enumerate(indexes):
-            # X_sample = self.x_set[sample_index].astype(np.uint8)
             if self.x_cache:
                 X_sample = self.x_cache[sample_index]
             else:
                 X_sample = self.__get_image(sample_index)
-            y_sample = self.y_set[sample_index]
 
             if self.augmentations:
                 augmented = self.a_transform(image=X_sample)
                 image_augm = augmented['image']
                 X_batch[i, ...] = image_augm
-                y_batch[i, ...] = y_sample
+                if self.y_set is not None:
+                    y_sample = self.y_set[sample_index]
+                    y_batch[i, ...] = y_sample
             else:
                 X_batch[i, ...] = X_sample
-                y_batch[i, ...] = y_sample
+                if self.y_set is not None:
+                    y_sample = self.y_set[sample_index]
+                    y_batch[i, ...] = y_sample
         self.batch_indexes = indexes
-        return X_batch, y_batch
+
+        if self.y_set is not None:
+            return X_batch, y_batch
+        else:
+            return X_batch
 
     def on_epoch_end(self):
         """ Updates indexes after each epoch """
@@ -285,21 +317,21 @@ if __name__ == "__main__":
     visualize_augmentations(test_datagen, samples=15)
 
     test_datagen = AugmentedImageDataGenerator(dataframe=data_df,
-                                               directory=train_dir,
+                                               directory=test_dir,
                                                x_col="image_name",
-                                               y_col="class_id",
+                                               y_col=None,
                                                num_classes=3,
-                                               batch_size=1280,
+                                               batch_size=630,
                                                target_size=(224, 224),
                                                augmentations_list=None,
                                                augmentations=True,
-                                               shuffle=True,
-                                               validate_filenames=False,
+                                               shuffle=False,
+                                               validate_filenames=True,
                                                cache=True,
-                                               subset='train'
+                                               subset='test'
                                                )
 
-    batch_x, batch_y = test_datagen.__getitem__(0)
+    batch_x, batch_y = test_datagen.__getitem__(2)
     print(np.min(batch_x), np.mean(batch_x), np.max(batch_x))
 
     print("Ok")

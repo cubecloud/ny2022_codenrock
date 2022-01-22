@@ -9,7 +9,7 @@ import albumentations as A
 from imageutils import AugmentedImageDataGenerator
 import cv2
 
-__version__ = 0.008
+__version__ = 0.009
 
 
 class ImagesDataSet:
@@ -18,7 +18,7 @@ class ImagesDataSet:
                  data_df_path_filename: str = '',
                  image_size=150,
                  ):
-        self.version = "ds_v8"
+        self.version = "ds_v9"
         self.image_size = image_size
         assert data_images_dir, "Error: set the train directory!"
         self.data_images_dir = data_images_dir
@@ -38,9 +38,9 @@ class ImagesDataSet:
         self.class_weights = dict(enumerate(cl_weights))
         self.validation_split = 0.2
 
-        self.train_datagen = None
-        self.val_datagen = None
-        self.clean_datagen = None
+        # self.train_datagen = None
+        # self.val_datagen = None
+        # self.clean_datagen = None
 
         self.train_gen = None
         self.val_gen = None
@@ -89,29 +89,60 @@ class ImagesDataSet:
         #                             'horizontal_flip': True,
         #                             }
         # self.rescale_kwargs = {'rescale': (1 / 127.5) - 1.0}
-        self.data_split()
-        # self.train_df['class_id'].hist()
         pass
 
-    def data_split(self):
+    def data_split(self, balancing=True):
         """
         Balanced split to train and val
         Using oversampling method
         """
-
         self.train_df, self.val_df = train_test_split(self.data_df,
                                                       test_size=self.validation_split,
                                                       random_state=42,
                                                       stratify=self.data_df['class_id'].values
                                                       )
-        ncat_bal = self.train_df['class_id'].value_counts().max()
-        self.train_df = self.train_df.groupby('class_id', as_index=False).apply(
-            lambda g: g.sample(ncat_bal, replace=True, random_state=42)).reset_index(drop=True)
+
+        if balancing:
+            train_classes, train_count = np.unique(self.train_df["class_id"], return_counts=True)
+            val_classes, val_count = np.unique(self.val_df["class_id"], return_counts=True)
+            train_files_count = len(np.unique(self.train_df["image_name"]))
+            val_files_count = len(np.unique(self.val_df["image_name"]))
+            msg = f'Dataframe split _before_ balancing: \n' \
+                  f'train: {self.train_df.shape[0]} records. Classes: {train_classes}, ' \
+                  f'classes_count: {train_count}, files_count {train_files_count} \n' \
+                  f'val: {self.val_df.shape[0]} records. Classes: {val_classes}, ' \
+                  f'classes_count: {val_count}, files_count {val_files_count} \n'
+            print(msg)
+
+            ncat_bal = np.max(train_count)
+            new_df = self.train_df.copy()
+            for class_name, class_count in zip(train_classes, train_count):
+                if class_count == ncat_bal:
+                    continue
+                mask = self.train_df['class_id'] == class_name
+                temp_df = self.train_df.loc[mask].sample(ncat_bal - class_count, replace=True, random_state=42)
+                new_df = pd.concat([temp_df, new_df])
+
+            self.train_df = new_df
+
+            train_classes, train_count = np.unique(self.train_df["class_id"], return_counts=True)
+            val_classes, val_count = np.unique(self.val_df["class_id"], return_counts=True)
+            train_files_count = len(np.unique(self.train_df["image_name"]))
+            val_files_count = len(np.unique(self.val_df["image_name"]))
+
+            msg = f'Dataframe split _after_ balancing: \n' \
+                  f'train: {self.train_df.shape[0]} records. Classes: {train_classes}, ' \
+                  f'classes_count: {train_count}, files_count {train_files_count} \n' \
+                  f'val: {self.val_df.shape[0]} records. Classes: {val_classes}, ' \
+                  f'classes_count: {val_count}, files_count {val_files_count} \n'
+            print(msg)
 
         self.train_df.loc[:, 'split'] = 'train'
         self.val_df.loc[:, 'split'] = 'val'
+        pass
 
     def build(self):
+        self.data_split()
         self.train_gen = AugmentedImageDataGenerator(dataframe=self.train_df,
                                                      directory=self.data_images_dir,
                                                      x_col="image_name",
