@@ -14,8 +14,8 @@ if __name__ == "__main__":
     test_dir = os.path.join(base_dir, 'test')
     out_dir = os.path.join(base_dir, 'out')
 
-    image_size = 448
-    batch_size = 24
+    image_size = 672
+    batch_size = 12
 
     files_list = [str(fname) for fname in os.listdir(test_dir)]
 
