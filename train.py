@@ -8,7 +8,7 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLRO
 import matplotlib.pyplot as plt
 import tensorflow_addons as tfa
 import seaborn as sns
-from models import resnet50v2_original_model
+from models import resnet50v2_original_model, xception_original_model
 from dataset import ImagesDataSet
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from math import cos, pi
@@ -42,11 +42,17 @@ class TrainNN:
         self.model_compiled = False
         self.es_patience = 15
         self.rlrs_patience = 8
-        self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
-                                                                                 self.dataset.image_size) + (3,),
-                                                                    num_classes=3,
-                                                                    base_model_trainable=True,
-                                                                    )
+        # self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
+        #                                                                          self.dataset.image_size) + (3,),
+        #                                                             num_classes=3,
+        #                                                             base_model_trainable=True,
+        #                                                             )
+        self.keras_model, self.net_name = xception_original_model(input_shape=(self.dataset.image_size,
+                                                                               self.dataset.image_size) + (3,),
+                                                                  num_classes=3,
+                                                                  base_model_trainable=True,
+                                                                  )
+
         self.learning_rate = 1e-4
         self.min_learning_rate = 3e-7
         self.warmup = 10
@@ -251,7 +257,7 @@ if __name__ == "__main__":
     timezone = pytz.timezone("Europe/Moscow")
     image_size = 224
     batch_size = 12
-    epochs = 250
+    epochs = 300
     start_learning_rate = 1e-05
     start_patience = round(epochs * 0.04)
     show_figure = True

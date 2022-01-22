@@ -43,7 +43,7 @@ def resnet50v2_original_model(input_shape=(224, 224, 3),
                                                   input_shape=input_shape,
                                                   pooling="avg",
                                                   classes=num_classes,
-                                                  classifier_activation="softmax",
+                                                  classifier_activation=None,
                                                   )
     base_model.trainable = base_model_trainable
     x = layers.Dropout(0.47)(base_model.output)
@@ -53,6 +53,31 @@ def resnet50v2_original_model(input_shape=(224, 224, 3),
     x_out = layers.Dense(num_classes, activation='softmax')(x)
     keras_model = tf.keras.models.Model(inputs=base_model.input, outputs=x_out)
     name_of_model = f"ResNet50V2_orig_{version}_{input_shape[0]}x{input_shape[1]}"
+    return keras_model, name_of_model
+
+
+def xception_original_model(input_shape=(224, 224, 3),
+                            filters=64,
+                            num_classes=3,
+                            base_model_trainable=True,
+                            ):
+    version = 1
+    base_model = tf.keras.applications.Xception(include_top=False,
+                                                weights=None,
+                                                input_tensor=None,
+                                                input_shape=input_shape,
+                                                pooling="avg",
+                                                classes=num_classes,
+                                                classifier_activation="softmax",
+                                                )
+    base_model.trainable = base_model_trainable
+    x = layers.Dropout(0.47)(base_model.output)
+    x = layers.Dense(filters * 8, activation='relu')(x)
+    x = layers.Dropout(0.35)(x)
+    x = layers.Dense(int(filters / 4), activation='relu')(x)
+    x_out = layers.Dense(num_classes, activation='softmax')(x)
+    keras_model = tf.keras.models.Model(inputs=base_model.input, outputs=x_out)
+    name_of_model = f"Xception_orig_avg_{version}_{input_shape[0]}x{input_shape[1]}"
     return keras_model, name_of_model
 
 
