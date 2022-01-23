@@ -45,18 +45,10 @@ if __name__ == "__main__":
                                            subset='test'
                                            )
 
-
     print(f'Image Size = {image_size}x{image_size}')
 
     """ Universal part until this """
-    dataset = ImagesDataSet(train_dir,
-                            os.path.join(base_dir, "train.csv"),
-                            image_size=image_size,
-                            )
-    dataset.batch_size = batch_size
-    dataset.validation_split = 0.1
-    dataset.build()
-    tr = TrainNN(dataset)
+    tr = TrainNN(dataset=None)
     tr.monitor = "f1_score"
 
     y_pred = tr.get_predict(test_gen)

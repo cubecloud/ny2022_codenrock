@@ -13,12 +13,14 @@ __version__ = 0.012
 
 
 class ImagesDataSet:
+    version = "ds_v12"
+
     def __init__(self,
                  data_images_dir: str = '',
                  data_df_path_filename: str = '',
                  image_size=150,
                  ):
-        self.version = "ds_v12"
+        self.version = self.__class__.version
         self.image_size = image_size
         assert data_images_dir, "Error: set the train directory!"
         self.data_images_dir = data_images_dir

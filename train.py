@@ -25,35 +25,26 @@ test_dir = os.path.join(base_dir, 'test')
 
 class TrainNN:
     def __init__(self,
-                 dataset: ImagesDataSet,
+                 dataset: ImagesDataSet = None,
+                 num_classes: int = 3,
+                 image_size: int = 672
                  ):
 
         self.dataset = dataset
         self.y_Pred = None
-        self.experiment_name = f"{self.dataset.version}_tr_{__version__}"
+
         self.history = None
         self.epochs = 15
 
         self.batch_size = 32
         self.monitor = "categorical_accuracy"
         self.loss = "categorical_crossentropy"
-        # self.metrics = [CustomF1Score(), tfa.metrics.F1Score(num_classes=dataset.num_classes)]
-        self.metrics = [tfa.metrics.F1Score(num_classes=dataset.num_classes)]
+
         self.path_filename: str = ''
         self.model_compiled = False
         self.es_patience = 15
         self.rlrs_patience = 8
         self.base_model_trainable = True
-        self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
-                                                                                 self.dataset.image_size) + (3,),
-                                                                    num_classes=3,
-                                                                    base_model_trainable=True,
-                                                                    )
-        # self.keras_model, self.net_name = xception_original_model(input_shape=(self.dataset.image_size,
-        #                                                                        self.dataset.image_size) + (3,),
-        #                                                           num_classes=3,
-        #                                                           base_model_trainable=self.base_model_trainable,
-        #                                                           )
 
         self.learning_rate = 1e-4
         self.min_learning_rate = 3e-7
@@ -63,9 +54,35 @@ class TrainNN:
         #                                          nesterov=True,
         #                                          momentum=0.9
         #                                          )
-        self.class_weights = self.dataset.class_weights
-        self.total_batches = (self.epochs - self.warmup) * (self.dataset.train_gen.x_len / self.batch_size)
+        self.total_batches = 0
         self.count_cm: int = 0
+
+        if dataset:
+            self.num_classes = self.dataset.num_classes
+            self.metrics = [tfa.metrics.F1Score(num_classes=self.dataset.num_classes)]
+            self.experiment_name = f"{self.dataset.version}_tr_{__version__}"
+            self.class_weights = self.dataset.class_weights
+            self.image_size = self.dataset.image_size
+
+        else:
+            self.num_classes = num_classes
+            self.metrics = [tfa.metrics.F1Score(num_classes=num_classes)]
+            self.experiment_name = f"{ImagesDataSet.version}_tr_{__version__}"
+            self.class_weights = {0: 0.5333333333333333, 1: 1.7777777777777777, 2: 1.7777777777777777}
+            self.image_size = image_size
+
+        self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.image_size,
+                                                                                 self.image_size) + (3,),
+                                                                    num_classes=self.num_classes,
+                                                                    base_model_trainable=True,
+                                                                    )
+        # self.keras_model, self.net_name = xception_original_model(input_shape=(self.image_size,
+        #                                                                        self.image_size) + (3,),
+        #                                                           num_classes=self.num_classes,
+        #                                                           base_model_trainable=self.base_model_trainable,
+        #                                                           )
+
+
 
     def _scheduler(self, epoch, lr):
         """ Warm up from zero to learning_rate """
@@ -84,13 +101,15 @@ class TrainNN:
                                  loss=self.loss,
                                  metrics=self.metrics,
                                  )
-        self.total_batches = (self.epochs - self.warmup) * (self.dataset.train_gen.x_len / self.batch_size)
+
         self.model_compiled = True
         pass
 
     def train(self):
         if not self.model_compiled:
             self.compile()
+
+        self.total_batches = (self.epochs - self.warmup) * (self.dataset.train_gen.x_len / self.batch_size)
 
         lrs = LearningRateScheduler(self._scheduler, verbose=0)
 
@@ -153,7 +172,7 @@ class TrainNN:
                                             epochs=self.epochs,
                                             verbose=1,
                                             callbacks=callbacks,
-                                            class_weight=self.class_weights
+                                            # class_weight=self.class_weights
                                             )
         self.model_compiled = True
         pass
@@ -275,7 +294,7 @@ class TrainNN:
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 672
+    image_size = 224
     batch_size = 12
     epochs = 250
     start_learning_rate = 1e-05
@@ -291,7 +310,7 @@ if __name__ == "__main__":
     dataset.batch_size = batch_size
     dataset.validation_split = 0.1
     dataset.build()
-    tr = TrainNN(dataset)
+    tr = TrainNN(dataset=dataset, image_size=image_size)
     tr.monitor = "f1_score"
     tr.learning_rate = start_learning_rate
     tr.min_learning_rate = 1e-6
