@@ -10,10 +10,11 @@ import tensorflow_addons as tfa
 import seaborn as sns
 from models import resnet50v2_original_model, xception_original_model
 from dataset import ImagesDataSet
+from customcallbacks import ElectroF1
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from math import cos, pi
 
-__version__ = 0.009
+__version__ = 0.011
 
 home_dir = os.getcwd()
 base_dir = os.path.join(home_dir, 'data')
@@ -42,6 +43,7 @@ class TrainNN:
         self.model_compiled = False
         self.es_patience = 15
         self.rlrs_patience = 8
+        self.base_model_trainable = True
         # self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
         #                                                                          self.dataset.image_size) + (3,),
         #                                                             num_classes=3,
@@ -50,7 +52,7 @@ class TrainNN:
         self.keras_model, self.net_name = xception_original_model(input_shape=(self.dataset.image_size,
                                                                                self.dataset.image_size) + (3,),
                                                                   num_classes=3,
-                                                                  base_model_trainable=True,
+                                                                  base_model_trainable=self.base_model_trainable,
                                                                   )
 
         self.learning_rate = 1e-4
@@ -97,9 +99,26 @@ class TrainNN:
                                monitor=self.monitor,
                                save_best_only=True,
                                )
-        rlrs = ReduceLROnPlateau(monitor=self.monitor, factor=0.8, patience=self.rlrs_patience, min_lr=1e-07)
+        rlrs = ReduceLROnPlateau(monitor=self.monitor,
+                                 factor=0.8,
+                                 patience=self.rlrs_patience,
+                                 min_lr=1e-07)
+
+        electrof1 = ElectroF1(epochs=self.epochs,
+                              save_dir=weight_dir,
+                              save_prefix=f'{self.experiment_name}_{self.net_name}',
+                              metric_name=self.monitor,
+                              mode='max',
+                              monitor_mode='validation',
+                              keras_model=self.keras_model,
+                              patience=self.es_patience,
+                              save_best_epoch=True,
+                              # start_learning_rate=self.learning_rate,
+                              )
+
         es = EarlyStopping(patience=self.es_patience, monitor=self.monitor, restore_best_weights=True, verbose=1)
-        callbacks = [lrs, chkp, es]
+        # callbacks = [lrs, chkp, es]
+        callbacks = [lrs, electrof1]
 
         path_filename = f"{self.path_filename}_NN.png"
 
@@ -255,12 +274,13 @@ class TrainNN:
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 224
+    image_size = 448
     batch_size = 12
-    epochs = 300
+    epochs = 200
     start_learning_rate = 1e-05
     start_patience = round(epochs * 0.04)
-    show_figure = True
+
+    show_figure = False
     print(f'Image Size = {image_size}x{image_size}')
 
     dataset = ImagesDataSet(train_dir,
@@ -271,7 +291,7 @@ if __name__ == "__main__":
     dataset.validation_split = 0.1
     dataset.build()
     tr = TrainNN(dataset)
-    tr.monitor = "loss"
+    tr.monitor = "f1_score"
     tr.learning_rate = start_learning_rate
     tr.min_learning_rate = 1e-6
     tr.es_patience = 25
@@ -293,11 +313,8 @@ if __name__ == "__main__":
     dataset.build_check_gen(batch_size=batch_size, shuffle=True, augmentation=True, subset='train')
     tr.learning_rate = 1e-7
     tr.epochs = 2
-    tr.keras_model, tr.net_name = resnet50v2_original_model(input_shape=(tr.dataset.image_size,
-                                                                         tr.dataset.image_size) + (3,),
-                                                            num_classes=3,
-                                                            base_model_trainable=True,
-                                                            )
+    base_model_trainable = False
+
     tr.compile()
     # tr.load_best_weights(path_filename='/home/cubecloud/Python/projects/ny2022_codenrock/data/weight/ds_v5_tr_0.007_ResNet50V2_imagenet_3_448x448_loss_at_06.h5')
     tr.fine_train()
