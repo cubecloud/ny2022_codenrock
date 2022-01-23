@@ -44,16 +44,16 @@ class TrainNN:
         self.es_patience = 15
         self.rlrs_patience = 8
         self.base_model_trainable = True
-        # self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
-        #                                                                          self.dataset.image_size) + (3,),
-        #                                                             num_classes=3,
-        #                                                             base_model_trainable=True,
-        #                                                             )
-        self.keras_model, self.net_name = xception_original_model(input_shape=(self.dataset.image_size,
-                                                                               self.dataset.image_size) + (3,),
-                                                                  num_classes=3,
-                                                                  base_model_trainable=self.base_model_trainable,
-                                                                  )
+        self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.dataset.image_size,
+                                                                                 self.dataset.image_size) + (3,),
+                                                                    num_classes=3,
+                                                                    base_model_trainable=True,
+                                                                    )
+        # self.keras_model, self.net_name = xception_original_model(input_shape=(self.dataset.image_size,
+        #                                                                        self.dataset.image_size) + (3,),
+        #                                                           num_classes=3,
+        #                                                           base_model_trainable=self.base_model_trainable,
+        #                                                           )
 
         self.learning_rate = 1e-4
         self.min_learning_rate = 3e-7
@@ -171,7 +171,7 @@ class TrainNN:
         self.y_Pred = self.keras_model.predict(x_Data)
         return self.y_Pred
 
-    def evaluate(self, Test: Tuple):
+    def evaluate(self, Test):
         if not self.model_compiled:
             self.compile()
             self.load_best_weights()
@@ -274,9 +274,9 @@ class TrainNN:
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 448
+    image_size = 672
     batch_size = 12
-    epochs = 200
+    epochs = 250
     start_learning_rate = 1e-05
     start_patience = round(epochs * 0.04)
 
@@ -294,14 +294,14 @@ if __name__ == "__main__":
     tr.monitor = "f1_score"
     tr.learning_rate = start_learning_rate
     tr.min_learning_rate = 1e-6
-    tr.es_patience = 25
+    tr.es_patience = 40
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
 
-    tr.train()
-    end = datetime.datetime.now()
-    print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
-    tr.figshow_base(save_figure=True, show_figure=show_figure)
+    # tr.train()
+    # end = datetime.datetime.now()
+    # print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
+    # tr.figshow_base(save_figure=True, show_figure=show_figure)
 
     """ Checking train on all available data, w/o base_model """
     dataset.build_check_gen(batch_size=batch_size)
@@ -312,9 +312,8 @@ if __name__ == "__main__":
 
     dataset.build_check_gen(batch_size=batch_size, shuffle=True, augmentation=True, subset='train')
     tr.learning_rate = 1e-7
-    tr.epochs = 2
+    tr.epochs = 4
     base_model_trainable = False
-
     tr.compile()
     # tr.load_best_weights(path_filename='/home/cubecloud/Python/projects/ny2022_codenrock/data/weight/ds_v5_tr_0.007_ResNet50V2_imagenet_3_448x448_loss_at_06.h5')
     tr.fine_train()

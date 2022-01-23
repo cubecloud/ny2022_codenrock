@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 from train import TrainNN
 from dataset import ImagesDataSet
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from imageutils import AugmentedImageDataGenerator
 import albumentations as A
 
@@ -16,26 +15,21 @@ if __name__ == "__main__":
     out_dir = os.path.join(base_dir, 'out')
 
     image_size = 672
-    batch_size = 24
+    batch_size = 12
 
     files_list = [str(fname) for fname in os.listdir(test_dir)]
 
     test_df = pd.DataFrame(data=files_list, columns=['image_name'])
 
-    # datagen = ImageDataGenerator(rescale=(1 / 127.5) - 1.0)
-    # test_gen = datagen.flow_from_dataframe(dataframe=test_df,
-    #                                        directory=test_dir,
-    #                                        x_col="image_name",
-    #                                        shuffle=False,
-    #                                        batch_size=batch_size,
-    #                                        class_mode=None,
-    #                                        target_size=(image_size, image_size)
-    #                                        )
+
     test_augmentations_list = [A.CenterCrop(height=image_size,
                                             width=image_size,
                                             p=1.0),
-                               A.Normalize(p=1.0),
+                               A.Normalize(mean=(0.5, 0.5, 0.5),
+                                           std=(0.5, 0.5, 0.5),
+                                           p=1.0),
                                ]
+
     test_gen = AugmentedImageDataGenerator(dataframe=test_df,
                                            directory=test_dir,
                                            x_col="image_name",
@@ -50,6 +44,8 @@ if __name__ == "__main__":
                                            cache=True,
                                            subset='test'
                                            )
+
+
     print(f'Image Size = {image_size}x{image_size}')
 
     """ Universal part until this """
@@ -61,9 +57,7 @@ if __name__ == "__main__":
     dataset.validation_split = 0.1
     dataset.build()
     tr = TrainNN(dataset)
-    tr.monitor = "loss"
-    # tr.load_best_weights('/home/cubecloud/Python/projects/ny2022_codenrock/data/weight/ds_v8_tr_0.007_ResNet50V2_orig_4_672x672_loss.h5')
-    tr.evaluate(test_gen)
+    tr.monitor = "f1_score"
 
     y_pred = tr.get_predict(test_gen)
     """ Universal part from this """
