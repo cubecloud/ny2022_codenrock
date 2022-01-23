@@ -21,7 +21,6 @@ if __name__ == "__main__":
 
     test_df = pd.DataFrame(data=files_list, columns=['image_name'])
 
-
     test_augmentations_list = [A.CenterCrop(height=image_size,
                                             width=image_size,
                                             p=1.0),
@@ -42,7 +41,8 @@ if __name__ == "__main__":
                                            shuffle=False,
                                            validate_filenames=True,
                                            cache=True,
-                                           subset='test'
+                                           subset='test',
+                                           color_mode='RGB'
                                            )
 
     print(f'Image Size = {image_size}x{image_size}')

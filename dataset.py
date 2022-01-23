@@ -9,11 +9,11 @@ import albumentations as A
 from imageutils import AugmentedImageDataGenerator
 import cv2
 
-__version__ = 0.012
+__version__ = 0.013
 
 
 class ImagesDataSet:
-    version = "ds_v12"
+    version = "ds_v13"
 
     def __init__(self,
                  data_images_dir: str = '',
@@ -55,12 +55,12 @@ class ImagesDataSet:
                                                   p=0.5),
                                          A.RandomResizedCrop(height=self.image_size,
                                                              width=self.image_size,
-                                                             scale=(0.08, 1.0),
+                                                             scale=(0.19, 1.0),
                                                              ratio=(0.88, 1.0),
                                                              p=1.0),
                                          A.HorizontalFlip(p=0.5),
-                                         A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1),
-                                                                    contrast_limit=(-0.1, 0.1),
+                                         A.RandomBrightnessContrast(brightness_limit=(-0.15, 0.15),
+                                                                    contrast_limit=(-0.15, 0.15),
                                                                     p=0.5),
                                          A.HueSaturationValue(p=0.33),
                                          A.RGBShift(r_shift_limit=15,
@@ -68,9 +68,9 @@ class ImagesDataSet:
                                                     b_shift_limit=15,
                                                     p=0.5),
                                          # A.Normalize(p=1.0),
-                                         A.Normalize(mean=(0.5, 0.5, 0.5),
-                                                     std=(0.5, 0.5, 0.5),
-                                                     p=1.0),
+                                         # A.Normalize(mean=(0.5, 0.5, 0.5),
+                                         #             std=(0.5, 0.5, 0.5),
+                                         #             p=1.0),
                                          ]
 
         """ 123.68, 116.779, 103.939 and dividing by 58.393, 57.12, 57.375, respectively """
@@ -79,9 +79,9 @@ class ImagesDataSet:
                                                     width=self.image_size,
                                                     p=1.0),
                                        # A.Normalize(p=1.0),
-                                       A.Normalize(mean=(0.5, 0.5, 0.5),
-                                                   std=(0.5, 0.5, 0.5),
-                                                   p=1.0),
+                                       # A.Normalize(mean=(0.5, 0.5, 0.5),
+                                       #             std=(0.5, 0.5, 0.5),
+                                       #             p=1.0),
                                        ]
         # self.augmentation_kwargs = {'rescale': (1 / 127.5) - 1.0,
         #                             'shear_range': 0.12,
@@ -131,7 +131,7 @@ class ImagesDataSet:
                         temp_df = self.train_df.loc[mask]
                         new_df = pd.concat([temp_df, new_df])
                     temp_df = self.train_df.loc[mask].sample(n=bal_def - (int(frac_def) * class_count), replace=True,
-                                                        random_state=24)
+                                                             random_state=24)
                 new_df = pd.concat([temp_df, new_df])
 
             self.train_df = new_df
@@ -166,7 +166,8 @@ class ImagesDataSet:
                                                      shuffle=True,
                                                      validate_filenames=True,
                                                      cache=True,
-                                                     subset='train'
+                                                     subset='train',
+                                                     color_mode='RGB'
                                                      )
 
         self.val_gen = AugmentedImageDataGenerator(dataframe=self.val_df,
@@ -181,7 +182,8 @@ class ImagesDataSet:
                                                    shuffle=False,
                                                    validate_filenames=True,
                                                    cache=True,
-                                                   subset='validation'
+                                                   subset='validation',
+                                                   color_mode='RGB'
                                                    )
 
         # self.train_datagen = ImageDataGenerator(**self.augmentation_kwargs)
@@ -244,10 +246,42 @@ class ImagesDataSet:
                                                    shuffle=shuffle,
                                                    validate_filenames=True,
                                                    cache=True,
-                                                   subset=subset
+                                                   subset=subset,
+                                                   color_mode='RGB'
                                                    )
         pass
 
 
 if __name__ == "__main__":
+    import os
+    import matplotlib.pyplot as plt
+    import random
+
+
+    def plot_augmentation(datagen, n_rows=2, n_cols=4):
+        n_images = n_rows * n_cols
+        base_size = 3
+        fig_size = (n_cols * base_size, n_rows * base_size)
+        fig = plt.figure(figsize=fig_size)
+        count = 1
+        images_indices = random.sample(range(datagen.__len__()), k=n_images)
+        for ix in (images_indices):
+            plt.subplot(n_rows, n_cols, count)
+            plt.axis('off')
+            X, Y = datagen.__getitem__(ix)
+            X = np.squeeze(X)
+            plt.imshow((X.astype('uint8')))
+            count += 1
+        fig.tight_layout(pad=0.0)
+        plt.show()
+
+
+    dataset = ImagesDataSet(os.path.join(os.getcwd(), "data", "train"),
+                            os.path.join(os.getcwd(), "data", "train.csv")
+                            )
+    dataset.validation_split = 0.1
+    dataset.batch_size = 1
+    dataset.build()
+    plot_augmentation(dataset.train_gen, n_rows=5, n_cols=10)
+    plot_augmentation(dataset.val_gen, n_rows=5, n_cols=10)
     print("ok")

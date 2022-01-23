@@ -14,7 +14,7 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-__version__ = 0.003
+__version__ = 0.004
 
 
 class AugmentedImageDataGenerator(Sequence):
@@ -38,6 +38,7 @@ class AugmentedImageDataGenerator(Sequence):
                  validate_filenames: bool = False,
                  cache: bool = True,
                  subset: str = 'train',
+                 color_mode: str = 'RGB'
                  ):
         # super().__init__(
         #     preprocessing_function=self.augment_pairs,
@@ -63,6 +64,14 @@ class AugmentedImageDataGenerator(Sequence):
         self.__check_filenames()
         self.len: int = 0
         self.len_calc()
+        self.color_mode = color_mode
+        if self.color_mode == 'RGB':
+            self.color_profile = cv2.COLOR_BGR2RGB
+        elif self.color_mode == 'LAB':
+            self.color_profile = cv2.COLOR_BGR2LAB
+        else:
+            msg = f'Error: unknown color_mode type {self.color_mode}'
+            assert self.subset == 'RGB' or self.subset == 'LAB', msg
 
         self.x_cache: list = []
 
@@ -97,10 +106,10 @@ class AugmentedImageDataGenerator(Sequence):
                                                             g_shift_limit=15,
                                                             b_shift_limit=15,
                                                             p=0.3),
-                                                 A.Normalize(p=1.0),
-                                                 # A.Normalize(mean=(0.5, 0.5, 0.5),
-                                                 #             std=(0.5, 0.5, 0.5)
-                                                 #             ),
+                                                 # A.Normalize(p=1.0),
+                                                 A.Normalize(mean=(0.5, 0.5, 0.5),
+                                                             std=(0.5, 0.5, 0.5)
+                                                             ),
                                                  # A.Normalize(mean=(0.485, 0.456, 0.406),
                                                  #             std=(0.229*2, 0.224*2, 0.225*2)
                                                  #             ),
@@ -109,10 +118,10 @@ class AugmentedImageDataGenerator(Sequence):
         self.default_val_augmentations_list = [A.CenterCrop(height=self.img_height,
                                                             width=self.img_width,
                                                             ),
-                                               A.Normalize(p=1.0),
-                                               # A.Normalize(mean=(0.5, 0.5, 0.5),
-                                               #             std=(0.5, 0.5, 0.5)
-                                               #             ),
+                                               # A.Normalize(p=1.0),
+                                               A.Normalize(mean=(0.5, 0.5, 0.5),
+                                                           std=(0.5, 0.5, 0.5)
+                                                           ),
                                                # A.Normalize(mean=(0.485, 0.456, 0.406),
                                                #             std=(0.229, 0.224, 0.225)
                                                #             ),
@@ -163,7 +172,7 @@ class AugmentedImageDataGenerator(Sequence):
 
     def __get_image_from_file(self, path_filename):
         image = cv2.imread(path_filename)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, self.color_profile)
         return image
 
     def __get_image(self, idx):
@@ -171,8 +180,8 @@ class AugmentedImageDataGenerator(Sequence):
 
     def __prefetch(self):
         if self.subset == 'train':
-            prefetch_width = self.img_width + self.img_width // 10
-            prefetch_height = self.img_height + self.img_height // 10
+            prefetch_width = round(self.img_width + self.img_width / 7)
+            prefetch_height = round(self.img_height + self.img_height / 7)
         elif self.subset == 'validation' or self.subset == 'test':
             prefetch_width = self.img_width
             prefetch_height = self.img_height
@@ -182,20 +191,37 @@ class AugmentedImageDataGenerator(Sequence):
 
         for path_filename in self.path_filenames_list:
             image = self.__get_image_from_file(path_filename)
+            w2h_ratio = image.shape[1]/image.shape[0]
+            if w2h_ratio <= 0.75:
+                width_size = prefetch_width
+                height_size = round(prefetch_height / 3 * 4)
+                max_size = prefetch_height
+            elif w2h_ratio >= 1.33333:
+                width_size = round(prefetch_width / 3 * 4)
+                height_size = prefetch_height
+                max_size = prefetch_width
+            else:
+                width_size = prefetch_width
+                height_size = prefetch_height
+                max_size = prefetch_width
 
             transform = A.Compose(
-                [A.SmallestMaxSize(max_size=prefetch_width if image.shape[0] < image.shape[1] else prefetch_height,
+                [A.SmallestMaxSize(max_size=max_size,
                                    interpolation=cv2.INTER_LANCZOS4,
+                                   p=1.0,
                                    ),
+                 A.CenterCrop(height=height_size,
+                              width=width_size,
+                              p=1.0,
+                              )
                  ]
-                )
-
-            if image.shape[0] <= prefetch_height or image.shape[1] <= prefetch_width:
-                augmented = transform(image=image)
-                image_augm = augmented['image']
-                self.x_cache.append(image_augm)
-            else:
-                self.x_cache.append(image)
+            )
+            # if image.shape[0] <= prefetch_height or image.shape[1] <= prefetch_width:
+            augmented = transform(image=image)
+            image_augm = augmented['image']
+            self.x_cache.append(image_augm)
+            # else:
+            #     self.x_cache.append(image)
         self.prefetch_status = True
 
     def check(self, index):
@@ -278,7 +304,8 @@ if __name__ == "__main__":
                                                shuffle=True,
                                                validate_filenames=False,
                                                cache=True,
-                                               subset='train'
+                                               subset='train',
+                                               color_mode='RGB'
                                                )
 
 
@@ -328,10 +355,11 @@ if __name__ == "__main__":
                                                shuffle=False,
                                                validate_filenames=True,
                                                cache=True,
-                                               subset='test'
+                                               subset='test',
+                                               color_mode='RGB'
                                                )
 
-    batch_x, batch_y = test_datagen.__getitem__(2)
+    batch_x = test_datagen.__getitem__(2)
     print(np.min(batch_x), np.mean(batch_x), np.max(batch_x))
 
     print("Ok")

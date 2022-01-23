@@ -8,7 +8,7 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLRO
 import matplotlib.pyplot as plt
 import tensorflow_addons as tfa
 import seaborn as sns
-from models import resnet50v2_original_model, xception_original_model
+from models import resnet50v2_original_model, xception_original_model, sepconv2d, inceptionv3_original_model
 from dataset import ImagesDataSet
 from customcallbacks import ElectroF1
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -71,18 +71,25 @@ class TrainNN:
             self.class_weights = {0: 0.5333333333333333, 1: 1.7777777777777777, 2: 1.7777777777777777}
             self.image_size = image_size
 
-        self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.image_size,
-                                                                                 self.image_size) + (3,),
-                                                                    num_classes=self.num_classes,
-                                                                    base_model_trainable=True,
-                                                                    )
+        # self.keras_model, self.net_name = resnet50v2_original_model(input_shape=(self.image_size,
+        #                                                                          self.image_size) + (3,),
+        #                                                             num_classes=self.num_classes,
+        #                                                             base_model_trainable=True,
+        #                                                             )
         # self.keras_model, self.net_name = xception_original_model(input_shape=(self.image_size,
         #                                                                        self.image_size) + (3,),
         #                                                           num_classes=self.num_classes,
         #                                                           base_model_trainable=self.base_model_trainable,
         #                                                           )
-
-
+        self.keras_model, self.net_name = inceptionv3_original_model(input_shape=(self.image_size,
+                                                                                  self.image_size) + (3,),
+                                                                     num_classes=self.num_classes,
+                                                                     base_model_trainable=self.base_model_trainable,
+                                                                     )
+        # self.keras_model, self.net_name = sepconv2d(input_shape=(self.image_size,
+        #                                                          self.image_size) + (3,),
+        #                                             num_classes=self.num_classes,
+        #                                             )
 
     def _scheduler(self, epoch, lr):
         """ Warm up from zero to learning_rate """
@@ -294,7 +301,7 @@ class TrainNN:
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 224
+    image_size = 672
     batch_size = 12
     epochs = 250
     start_learning_rate = 1e-05
