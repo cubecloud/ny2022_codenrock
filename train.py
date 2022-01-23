@@ -299,10 +299,10 @@ if __name__ == "__main__":
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
 
-    # tr.train()
-    # end = datetime.datetime.now()
-    # print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
-    # tr.figshow_base(save_figure=True, show_figure=show_figure)
+    tr.train()
+    end = datetime.datetime.now()
+    print(f'Planned epochs: {epochs} Calculated epochs : {len(tr.history.history["loss"])} Time elapsed: {end - start}')
+    tr.figshow_base(save_figure=True, show_figure=show_figure)
 
     """ Checking train on all available data, w/o base_model """
     dataset.build_check_gen(batch_size=batch_size)
