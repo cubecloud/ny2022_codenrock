@@ -247,6 +247,7 @@ class TrainNN:
         classes = list(self.class_weights.keys())
         dataset.build_check_gen(batch_size=1280)
         x_test, y_test = self.dataset.all_gen.__getitem__(0)
+
         y_pred = self.get_predict(x_test)
         y_pred = np.argmax(y_pred, axis=1)
         y_test = np.argmax(y_test, axis=1)
@@ -305,20 +306,9 @@ if __name__ == "__main__":
 
     """ Checking train on all available data, w/o base_model """
     dataset.build_check_gen(batch_size=batch_size)
-    tr.load_best_weights()
+    # tr.load_best_weights()
     tr.evaluate(dataset.all_gen)
     """ Check confusion matrix """
     tr.figshow_matrix(save_figure=True, show_figure=show_figure)
 
-    dataset.build_check_gen(batch_size=batch_size, shuffle=True, augmentation=True, subset='train')
-    tr.learning_rate = 1e-7
-    tr.epochs = 4
-    base_model_trainable = False
-    tr.compile()
-    # tr.load_best_weights(path_filename='/home/cubecloud/Python/projects/ny2022_codenrock/data/weight/ds_v5_tr_0.007_ResNet50V2_imagenet_3_448x448_loss_at_06.h5')
-    tr.fine_train()
-
-    dataset.build_check_gen(batch_size=batch_size, shuffle=False, subset='validation')
-    tr.evaluate(dataset.all_gen)
-    tr.figshow_matrix(save_figure=True, show_figure=show_figure)
     print("ok")
