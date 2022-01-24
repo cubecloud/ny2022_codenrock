@@ -8,7 +8,8 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLRO
 import matplotlib.pyplot as plt
 import tensorflow_addons as tfa
 import seaborn as sns
-from models import resnet50v2_original_model, xception_original_model, sepconv2d, inceptionv3_original_model
+from models import resnet50v2_original_model, xception_original_model, sepconv2d, \
+    inceptionv3_original_model, nasnetlarge_original_model
 from dataset import ImagesDataSet
 from customcallbacks import ElectroF1
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -86,6 +87,11 @@ class TrainNN:
                                                                      num_classes=self.num_classes,
                                                                      base_model_trainable=self.base_model_trainable,
                                                                      )
+        # self.keras_model, self.net_name = nasnetlarge_original_model(input_shape=(self.image_size,
+        #                                                                           self.image_size) + (3,),
+        #                                                              num_classes=self.num_classes,
+        #                                                              base_model_trainable=self.base_model_trainable,
+        #                                                              )
         # self.keras_model, self.net_name = sepconv2d(input_shape=(self.image_size,
         #                                                          self.image_size) + (3,),
         #                                             num_classes=self.num_classes,
@@ -271,10 +277,18 @@ class TrainNN:
 
     def figshow_matrix(self, save_figure=True, show_figure=True):
         classes = list(self.class_weights.keys())
-        dataset.build_check_gen(batch_size=1280)
-        x_test, y_test = self.dataset.all_gen.__getitem__(0)
-
-        y_pred = self.get_predict(x_test)
+        """ OOM if batch size too big on pred, going save way """
+        dataset.build_check_gen(batch_size=1)
+        x_test = []
+        y_test = []
+        y_pred = []
+        for x_batch, y_batch in self.dataset.all_gen:
+            x_test.append(x_batch)
+            y_test.append(y_batch)
+            y_batch_pred = self.get_predict(x_batch)
+            y_pred.append(y_batch_pred)
+        y_test = np.vstack(y_test)
+        y_pred = np.vstack(y_pred)
         y_pred = np.argmax(y_pred, axis=1)
         y_test = np.argmax(y_test, axis=1)
         cm = confusion_matrix(y_test, y_pred, labels=classes)
@@ -301,7 +315,7 @@ class TrainNN:
 if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
-    image_size = 672
+    image_size = 224
     batch_size = 12
     epochs = 250
     start_learning_rate = 1e-05
@@ -313,6 +327,7 @@ if __name__ == "__main__":
     dataset = ImagesDataSet(train_dir,
                             os.path.join(base_dir, "train.csv"),
                             image_size=image_size,
+                            # color_mode='RGB'
                             )
     dataset.batch_size = batch_size
     dataset.validation_split = 0.1
@@ -320,8 +335,8 @@ if __name__ == "__main__":
     tr = TrainNN(dataset=dataset, image_size=image_size)
     tr.monitor = "f1_score"
     tr.learning_rate = start_learning_rate
-    tr.min_learning_rate = 1e-6
-    tr.es_patience = 40
+    tr.min_learning_rate = 5e-6
+    tr.es_patience = 50
     tr.rlrs_patience = start_patience
     tr.epochs = epochs
 

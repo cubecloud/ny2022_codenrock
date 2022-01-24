@@ -192,18 +192,26 @@ class AugmentedImageDataGenerator(Sequence):
         for path_filename in self.path_filenames_list:
             image = self.__get_image_from_file(path_filename)
             w2h_ratio = image.shape[1]/image.shape[0]
+            """ Croping to 3/4, 4/3  if some images have too long side"""
             if w2h_ratio <= 0.75:
                 width_size = prefetch_width
                 height_size = round(prefetch_height / 3 * 4)
                 max_size = prefetch_height
-            elif w2h_ratio >= 1.33333:
+            elif w2h_ratio >= 1.3333333333333333:
                 width_size = round(prefetch_width / 3 * 4)
                 height_size = prefetch_height
                 max_size = prefetch_width
             else:
-                width_size = prefetch_width
-                height_size = prefetch_height
-                max_size = prefetch_width
+                if 0.75 < w2h_ratio < 1.0:
+                    """ Respect the height """
+                    width_size = prefetch_width
+                    height_size = int(round(image.shape[0] * (prefetch_height/image.shape[0]) / w2h_ratio))
+                    max_size = prefetch_width
+                elif 1.3333333333333333 > w2h_ratio >= 1.0:
+                    """ Respect the width """
+                    width_size = int(round(image.shape[1] * (prefetch_width/image.shape[1]) * w2h_ratio))
+                    height_size = prefetch_height
+                    max_size = prefetch_height
 
             transform = A.Compose(
                 [A.SmallestMaxSize(max_size=max_size,
