@@ -9,17 +9,18 @@ import albumentations as A
 from imageutils import AugmentedImageDataGenerator
 import cv2
 
-__version__ = 0.016
+__version__ = 0.018
 
 
 class ImagesDataSet:
-    version = "ds_v16"
+    version = "ds_v18"
 
     def __init__(self,
                  data_images_dir: str = '',
                  data_df_path_filename: str = '',
                  image_size=150,
                  color_mode='RGB',
+                 balancing=False,
                  ):
         self.version = self.__class__.version
         if color_mode != 'RGB':
@@ -44,10 +45,11 @@ class ImagesDataSet:
         self.class_weights = dict(enumerate(cl_weights))
         self.validation_split = 0.2
         self.color_mode = color_mode
+        self.balancing = balancing
 
-        # self.train_datagen = None
-        # self.val_datagen = None
-        # self.clean_datagen = None
+        self.train_datagen = None
+        self.val_datagen = None
+        self.clean_datagen = None
 
         self.train_gen = None
         self.val_gen = None
@@ -55,54 +57,51 @@ class ImagesDataSet:
 
         self.train_df = pd.DataFrame()
         self.val_df = pd.DataFrame()
-        self.train_augmentations_list = [A.Rotate(limit=(-3, 3),
-                                                  interpolation=cv2.INTER_LANCZOS4,
-                                                  p=0.5),
-                                         A.RandomResizedCrop(height=self.image_size,
-                                                             width=self.image_size,
-                                                             scale=(0.08, 1.0),
-                                                             ratio=(0.75, 1.3333333333333333),
-                                                             p=1.0),
-                                         A.HorizontalFlip(p=0.5),
-                                         A.RandomBrightnessContrast(brightness_limit=(-0.4, 0.4),
-                                                                    contrast_limit=(0, 0),
-                                                                    p=0.5),
-                                         A.HueSaturationValue(hue_shift_limit=40,
-                                                              sat_shift_limit=40,
-                                                              val_shift_limit=40,
-                                                              p=0.5),
-                                         # A.RGBShift(r_shift_limit=15,
-                                         #            g_shift_limit=15,
-                                         #            b_shift_limit=15,
-                                         #            p=0.5),
-                                         A.FancyPCA(alpha=0.1, p=1.0),
-                                         # A.Normalize(p=1.0),
-                                         A.Normalize(mean=(0.5, 0.5, 0.5),
-                                                     std=(0.5, 0.5, 0.5),
-                                                     p=1.0),
-                                         ]
+        # self.train_augmentations_list = [A.Rotate(limit=(-3, 3),
+        #                                           interpolation=cv2.INTER_LANCZOS4,
+        #                                           p=0.5),
+        #                                  A.RandomResizedCrop(height=self.image_size,
+        #                                                      width=self.image_size,
+        #                                                      scale=(0.08, 1.0),
+        #                                                      ratio=(0.88, 1.0),
+        #                                                      p=1.0),
+        #                                  A.HorizontalFlip(p=0.5),
+        #                                  A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1),
+        #                                                             contrast_limit=(-0.1, 0.1),
+        #                                                             p=0.5),
+        #                                  A.HueSaturationValue(p=0.5),
+        #                                  A.RGBShift(r_shift_limit=15,
+        #                                             g_shift_limit=15,
+        #                                             b_shift_limit=15,
+        #                                             p=0.5),
+        #                                  A.FancyPCA(p=1.0),
+        #                                  # A.Normalize(p=1.0),
+        #                                  A.Normalize(mean=(0.5, 0.5, 0.5),
+        #                                              std=(0.5, 0.5, 0.5),
+        #                                              p=1.0),
+        #                                  ]
 
         """ 123.68, 116.779, 103.939 and dividing by 58.393, 57.12, 57.375, respectively """
 
-        self.val_augmentations_list = [A.CenterCrop(height=self.image_size,
-                                                    width=self.image_size,
-                                                    p=1.0),
-                                       # A.Normalize(p=1.0),
-                                       A.Normalize(mean=(0.5, 0.5, 0.5),
-                                                   std=(0.5, 0.5, 0.5),
-                                                   p=1.0),
-                                       ]
-        # self.augmentation_kwargs = {'rescale': (1 / 127.5) - 1.0,
-        #                             'shear_range': 0.12,
-        #                             'zoom_range': 0.12,
-        #                             'rotation_range': 3,
-        #                             'brightness_range': (0.9, 1.1),
-        #                             'horizontal_flip': True,
-        #                             }
-        # self.rescale_kwargs = {'rescale': (1 / 127.5) - 1.0}
+        # self.val_augmentations_list = [A.CenterCrop(height=self.image_size,
+        #                                             width=self.image_size,
+        #                                             p=1.0),
+        #                                # A.Normalize(p=1.0),
+        #                                A.Normalize(mean=(0.5, 0.5, 0.5),
+        #                                            std=(0.5, 0.5, 0.5),
+        #                                            p=1.0),
+        #                                ]
+        self.augmentation_kwargs = {'rescale': (1 / 127.5) - 1.0,
+                                    'shear_range': 0.12,
+                                    'zoom_range': 0.12,
+                                    'rotation_range': 3,
+                                    'brightness_range': (0.9, 1.1),
+                                    'horizontal_flip': True,
+                                    }
+        self.rescale_kwargs = {'rescale': (1 / 127.5) - 1.0}
         pass
 
-    def data_split(self, balancing=True):
+    def data_split(self, balancing=False):
         """
         Balanced split to train and val
         Using oversampling method
@@ -162,103 +161,115 @@ class ImagesDataSet:
         pass
 
     def build(self):
-        self.data_split()
-        self.train_gen = AugmentedImageDataGenerator(dataframe=self.train_df,
-                                                     directory=self.data_images_dir,
-                                                     x_col="image_name",
-                                                     y_col="class_id",
-                                                     num_classes=self.num_classes,
-                                                     batch_size=self.batch_size,
-                                                     target_size=(self.image_size, self.image_size),
-                                                     augmentations_list=self.train_augmentations_list,
-                                                     augmentations=True,
-                                                     shuffle=True,
-                                                     validate_filenames=True,
-                                                     cache=True,
-                                                     subset='train',
-                                                     color_mode=self.color_mode
-                                                     )
-
-        self.val_gen = AugmentedImageDataGenerator(dataframe=self.val_df,
-                                                   directory=self.data_images_dir,
-                                                   x_col="image_name",
-                                                   y_col="class_id",
-                                                   num_classes=self.num_classes,
-                                                   batch_size=self.batch_size,
-                                                   target_size=(self.image_size, self.image_size),
-                                                   augmentations_list=self.val_augmentations_list,
-                                                   augmentations=True,
-                                                   shuffle=False,
-                                                   validate_filenames=True,
-                                                   cache=True,
-                                                   subset='validation',
-                                                   color_mode=self.color_mode
-                                                   )
-
-        # self.train_datagen = ImageDataGenerator(**self.augmentation_kwargs)
+        self.data_split(balancing=self.balancing)
+        # self.train_gen = AugmentedImageDataGenerator(dataframe=self.train_df,
+        #                                              directory=self.data_images_dir,
+        #                                              x_col="image_name",
+        #                                              y_col="class_id",
+        #                                              num_classes=self.num_classes,
+        #                                              batch_size=self.batch_size,
+        #                                              target_size=(self.image_size, self.image_size),
+        #                                              augmentations_list=self.train_augmentations_list,
+        #                                              augmentations=True,
+        #                                              shuffle=True,
+        #                                              validate_filenames=True,
+        #                                              cache=True,
+        #                                              subset='train',
+        #                                              color_mode=self.color_mode
+        #                                              )
         #
-        # self.val_datagen = ImageDataGenerator(**self.rescale_kwargs)
+        # self.val_gen = AugmentedImageDataGenerator(dataframe=self.val_df,
+        #                                            directory=self.data_images_dir,
+        #                                            x_col="image_name",
+        #                                            y_col="class_id",
+        #                                            num_classes=self.num_classes,
+        #                                            batch_size=self.batch_size,
+        #                                            target_size=(self.image_size, self.image_size),
+        #                                            augmentations_list=self.val_augmentations_list,
+        #                                            augmentations=True,
+        #                                            shuffle=False,
+        #                                            validate_filenames=True,
+        #                                            cache=True,
+        #                                            subset='validation',
+        #                                            color_mode=self.color_mode
+        #                                            )
 
-        # self.train_gen = self.train_datagen.flow_from_dataframe(dataframe=self.train_df,
-        #                                                         directory=self.data_images_dir,
-        #                                                         x_col="image_name",
-        #                                                         y_col="class_id",
-        #                                                         # subset="training",
-        #                                                         validate_filenames=True,
-        #                                                         batch_size=self.batch_size,
-        #                                                         seed=42,
-        #                                                         shuffle=True,
-        #                                                         class_mode="categorical",
-        #                                                         target_size=(self.image_size, self.image_size)
-        #                                                         )
+        self.train_datagen = ImageDataGenerator(**self.augmentation_kwargs)
 
-        # self.val_gen = self.val_datagen.flow_from_dataframe(dataframe=self.val_df,
-        #                                                     directory=self.data_images_dir,
-        #                                                     x_col="image_name",
-        #                                                     y_col="class_id",
-        #                                                     # subset="validation",
-        #                                                     validate_filenames=True,
-        #                                                     batch_size=self.batch_size,
-        #                                                     seed=42,
-        #                                                     shuffle=False,
-        #                                                     class_mode="categorical",
-        #                                                     target_size=(self.image_size, self.image_size)
-        #                                                     )
+        self.val_datagen = ImageDataGenerator(**self.rescale_kwargs)
+
+        self.train_gen = self.train_datagen.flow_from_dataframe(dataframe=self.train_df,
+                                                                directory=self.data_images_dir,
+                                                                x_col="image_name",
+                                                                y_col="class_id",
+                                                                # subset="training",
+                                                                validate_filenames=True,
+                                                                batch_size=self.batch_size,
+                                                                seed=42,
+                                                                shuffle=True,
+                                                                class_mode="categorical",
+                                                                target_size=(self.image_size, self.image_size)
+                                                                )
+
+        self.val_gen = self.val_datagen.flow_from_dataframe(dataframe=self.val_df,
+                                                            directory=self.data_images_dir,
+                                                            x_col="image_name",
+                                                            y_col="class_id",
+                                                            # subset="validation",
+                                                            validate_filenames=True,
+                                                            batch_size=self.batch_size,
+                                                            seed=42,
+                                                            shuffle=False,
+                                                            class_mode="categorical",
+                                                            target_size=(self.image_size, self.image_size)
+                                                            )
 
     def build_check_gen(self, batch_size=32, shuffle=False, augmentation=False, subset='validation'):
+        # if augmentation:
+        #     kwargs = self.train_augmentations_list
+        # else:
+        #     kwargs = self.val_augmentations_list
+
         if augmentation:
-            kwargs = self.train_augmentations_list
+            kwargs = {'rescale': (1 / 127.5) - 1.0,
+                                    'shear_range': 0.12,
+                                    'zoom_range': 0.12,
+                                    'rotation_range': 3,
+                                    'brightness_range': (0.9, 1.1),
+                                    'horizontal_flip': True,
+                                    }
         else:
-            kwargs = self.val_augmentations_list
+            kwargs = {'rescale': (1 / 127.5) - 1.0}
 
-        # self.clean_datagen = ImageDataGenerator(**kwargs)
 
-        # self.all_gen = self.clean_datagen.flow_from_dataframe(dataframe=self.data_df,
-        #                                                       directory=self.data_images_dir,
-        #                                                       x_col="image_name",
-        #                                                       y_col="class_id",
-        #                                                       shuffle=shuffle,
-        #                                                       batch_size=batch_size,
-        #                                                       class_mode="categorical",
-        #                                                       target_size=(self.image_size, self.image_size)
-        #                                                       )
+        self.clean_datagen = ImageDataGenerator(**kwargs)
 
-        self.all_gen = AugmentedImageDataGenerator(dataframe=self.data_df,
-                                                   directory=self.data_images_dir,
-                                                   x_col="image_name",
-                                                   y_col="class_id",
-                                                   num_classes=self.num_classes,
-                                                   batch_size=batch_size,
-                                                   target_size=(self.image_size, self.image_size),
-                                                   augmentations_list=kwargs,
-                                                   augmentations=True,
-                                                   shuffle=shuffle,
-                                                   validate_filenames=True,
-                                                   cache=True,
-                                                   subset=subset,
-                                                   color_mode=self.color_mode
-                                                   )
-        pass
+        self.all_gen = self.clean_datagen.flow_from_dataframe(dataframe=self.data_df,
+                                                              directory=self.data_images_dir,
+                                                              x_col="image_name",
+                                                              y_col="class_id",
+                                                              shuffle=shuffle,
+                                                              batch_size=batch_size,
+                                                              class_mode="categorical",
+                                                              target_size=(self.image_size, self.image_size)
+                                                              )
+
+        # self.all_gen = AugmentedImageDataGenerator(dataframe=self.data_df,
+        #                                            directory=self.data_images_dir,
+        #                                            x_col="image_name",
+        #                                            y_col="class_id",
+        #                                            num_classes=self.num_classes,
+        #                                            batch_size=batch_size,
+        #                                            target_size=(self.image_size, self.image_size),
+        #                                            augmentations_list=kwargs,
+        #                                            augmentations=True,
+        #                                            shuffle=shuffle,
+        #                                            validate_filenames=True,
+        #                                            cache=True,
+        #                                            subset=subset,
+        #                                            color_mode=self.color_mode
+        #                                            )
+        # pass
 
 
 if __name__ == "__main__":

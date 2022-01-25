@@ -15,7 +15,7 @@ from customcallbacks import ElectroF1
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from math import cos, pi
 
-__version__ = 0.011
+__version__ = 0.015
 
 home_dir = os.getcwd()
 base_dir = os.path.join(home_dir, 'data')
@@ -50,11 +50,11 @@ class TrainNN:
         self.learning_rate = 1e-4
         self.min_learning_rate = 3e-7
         self.warmup = 10
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
-        # self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.learning_rate,
-        #                                          nesterov=True,
-        #                                          momentum=0.9
-        #                                          )
+        # self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
+        self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.learning_rate,
+                                                 nesterov=True,
+                                                 momentum=0.9
+                                                 )
         self.total_batches = 0
         self.count_cm: int = 0
 
@@ -122,7 +122,7 @@ class TrainNN:
         if not self.model_compiled:
             self.compile()
 
-        self.total_batches = (self.epochs - self.warmup) * (self.dataset.train_gen.x_len / self.batch_size)
+        self.total_batches = (self.epochs - self.warmup) * (self.dataset.train_df.shape[0] / self.batch_size)
 
         lrs = LearningRateScheduler(self._scheduler, verbose=0)
 
@@ -278,13 +278,12 @@ class TrainNN:
     def figshow_matrix(self, save_figure=True, show_figure=True):
         classes = list(self.class_weights.keys())
         """ OOM if batch size too big on pred, going save way """
-        dataset.build_check_gen(batch_size=1)
-        x_test = []
-        y_test = []
+        dataset.build_check_gen(batch_size=self.dataset.all_gen.samples)
         y_pred = []
-        for x_batch, y_batch in self.dataset.all_gen:
-            x_test.append(x_batch)
-            y_test.append(y_batch)
+        x_test, y_test = next(iter(self.dataset.all_gen))
+        batch_size = 10
+        for idx in range(batch_size, self.dataset.all_gen.samples+1, batch_size):
+            x_batch = x_test[idx-10:idx]
             y_batch_pred = self.get_predict(x_batch)
             y_pred.append(y_batch_pred)
         y_test = np.vstack(y_test)
@@ -316,10 +315,11 @@ if __name__ == "__main__":
     start = datetime.datetime.now()
     timezone = pytz.timezone("Europe/Moscow")
     image_size = 224
-    batch_size = 12
+    batch_size = 40
     epochs = 250
-    start_learning_rate = 1e-05
+    start_learning_rate = 1e-04
     start_patience = round(epochs * 0.04)
+    balancing = True
 
     show_figure = False
     print(f'Image Size = {image_size}x{image_size}')
@@ -327,6 +327,7 @@ if __name__ == "__main__":
     dataset = ImagesDataSet(train_dir,
                             os.path.join(base_dir, "train.csv"),
                             image_size=image_size,
+                            balancing=balancing,
                             # color_mode='RGB'
                             )
     dataset.batch_size = batch_size
@@ -347,7 +348,7 @@ if __name__ == "__main__":
 
     """ Checking train on all available data, w/o base_model """
     dataset.build_check_gen(batch_size=batch_size)
-    # tr.load_best_weights()
+    tr.load_best_weights()
     tr.evaluate(dataset.all_gen)
     """ Check confusion matrix """
     tr.figshow_matrix(save_figure=True, show_figure=show_figure)
